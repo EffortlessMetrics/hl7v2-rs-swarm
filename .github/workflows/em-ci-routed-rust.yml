@@ -131,7 +131,10 @@ jobs:
   rust-small-cx53:
     name: Rust Small on CX53
     needs: route-rust-small
-    if: needs.route-rust-small.outputs.router_target == 'cx53'
+    if: >-
+      always() &&
+      needs.route-rust-small.result == 'success' &&
+      needs.route-rust-small.outputs.router_target == 'cx53'
     runs-on: [self-hosted, Linux, X64, em-ci, cx53, rust-small, trusted-pr]
     timeout-minutes: 25
     container:
@@ -173,7 +176,10 @@ jobs:
   rust-small-cx43:
     name: Rust Small on CX43
     needs: route-rust-small
-    if: needs.route-rust-small.outputs.router_target == 'cx43'
+    if: >-
+      always() &&
+      needs.route-rust-small.result == 'success' &&
+      needs.route-rust-small.outputs.router_target == 'cx43'
     runs-on: [self-hosted, Linux, X64, em-ci, cx43, rust-small, trusted-pr]
     timeout-minutes: 30
     container:
@@ -215,7 +221,10 @@ jobs:
   rust-small-github:
     name: Rust Small on GitHub Hosted
     needs: route-rust-small
-    if: needs.route-rust-small.outputs.router_target == 'github'
+    if: >-
+      always() &&
+      needs.route-rust-small.result == 'success' &&
+      needs.route-rust-small.outputs.router_target == 'github'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
