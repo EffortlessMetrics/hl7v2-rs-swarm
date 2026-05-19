@@ -155,6 +155,7 @@ current_state = [
   "hl7v2-rs-swarm is public and seeded from the source repository history.",
   "The routed Rust Small workflow is installed and has proven GitHub-hosted fallback on push and manual dispatch.",
   "The routed Rust Small workflow reports missing runner-read secret setup separately from runner API failures.",
+  "The routed Rust Small workflow opts into the GitHub Actions Node 24 JavaScript action runtime during burn-in.",
   "New development should move to hl7v2-rs-swarm after routed CI and branch protection are fully proven.",
   "hl7v2-rs remains the source and release mirror until that role is deliberately changed.",
   "Runner group access and EM_RUNNER_READ_TOKEN scoping remain external admin setup before CX53/CX43 proof can complete.",
