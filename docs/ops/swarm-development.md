@@ -86,6 +86,21 @@ Later routed workflow runs distinguish missing token setup from API failures:
 - `router_reason=no_idle_runner` means the runner API was readable but no
   eligible CX53 or CX43 runner was online and idle.
 
+The latest post-merge routed proof after the Node 24 opt-in is:
+
+- Push proof: `HL7v2 Rust Small` run
+  `https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26128842531`
+  passed on `main` at `070ee2effb0ca1cb0639656ecd66f10ff3294e48`.
+- The route selected `router_target=github` with
+  `router_reason=runner_token_missing`.
+- `Rust Small on GitHub Hosted` and `HL7v2 Rust Small Result` passed.
+- `Rust Small on CX53` and `Rust Small on CX43` were skipped.
+- `CI`, `CI Policy`, and `Security` also passed on the same commit.
+
+This proves the routed gate still works under the workflow-scoped Node 24
+JavaScript action runtime opt-in. It still does not prove CX53 or CX43
+execution.
+
 ## Self-hosted Guardrails
 
 - Run self-hosted jobs only for same-repository trusted PRs.
@@ -103,6 +118,11 @@ following admin steps are required before self-hosted proof can complete:
 
 - Add `hl7v2-rs-swarm` to the `em-ci-small` runner group selected repositories.
 - Scope `EM_RUNNER_READ_TOKEN` to `hl7v2-rs-swarm`.
+
+Live checks on 2026-05-19 still showed zero visible repository runners, no
+visible repository secrets, and no `main` branch protection. Branch protection
+should remain deferred until CX53, CX43 fallback, and hosted fallback are all
+proven.
 
 Until those are complete, routed workflow proof can exercise hosted fallback
 behavior only. Do not claim CX53 or CX43 execution without run receipts.
