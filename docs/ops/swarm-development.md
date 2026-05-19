@@ -62,6 +62,15 @@ fallback route is proven:
 This proves the normalized result check and hosted fallback behavior. It does
 not prove CX53 or CX43 execution.
 
+Later routed workflow runs distinguish missing token setup from API failures:
+
+- `router_reason=runner_token_missing` means `EM_RUNNER_READ_TOKEN` is not
+  configured for this repository.
+- `router_reason=runner_api_failed` means the token was present but the GitHub
+  runner API did not return a usable `200` response.
+- `router_reason=no_idle_runner` means the runner API was readable but no
+  eligible CX53 or CX43 runner was online and idle.
+
 ## Self-hosted Guardrails
 
 - Run self-hosted jobs only for same-repository trusted PRs.
