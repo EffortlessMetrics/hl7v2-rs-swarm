@@ -85,7 +85,7 @@ jobs:
           fi
 
           if [ -z "${EM_RUNNER_READ_TOKEN:-}" ]; then
-            choose "github" "runner_api_failed"
+            choose "github" "runner_token_missing"
             exit 0
           fi
 
