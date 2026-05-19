@@ -145,6 +145,31 @@ proof_commands = [
 ]
 
 [[work_item]]
+id = "swarm-development-cutover"
+status = "active"
+goal = "Move day-to-day development to the public hl7v2-rs-swarm repository with a CX53-first routed Rust gate while keeping release and publish authority on the source repository until deliberately moved."
+swarm_repo = "https://github.com/EffortlessMetrics/hl7v2-rs-swarm"
+source_repo = "https://github.com/EffortlessMetrics/hl7v2-rs"
+marker = "docs/ops/swarm-development.md"
+current_state = [
+  "hl7v2-rs-swarm is public and seeded from the source repository history.",
+  "New development should move to hl7v2-rs-swarm after routed CI and branch protection are proven.",
+  "hl7v2-rs remains the source and release mirror until that role is deliberately changed.",
+  "Runner group access and EM_RUNNER_READ_TOKEN scoping remain external admin setup before CX53/CX43 proof can complete.",
+]
+planned_route = [
+  "HL7v2 Rust Small = CX53 -> CX43 -> GitHub-hosted.",
+  "The normalized branch-protection check should be HL7v2 Rust Small Result.",
+  "CX33 is not part of the default Rust gate during burn-in.",
+]
+non_claims = [
+  "No release or publish secrets moved.",
+  "No crates.io, TestPyPI, PyPI, npm, tag, or GitHub release action.",
+  "No branch protection enabled yet.",
+  "No CX53, CX43, or hosted fallback proof claimed yet.",
+]
+
+[[work_item]]
 id = "python-testpypi-oidc-diagnostic"
 status = "done"
 goal = "Run and record the no-upload hosted TestPyPI OIDC diagnostic path so the current GitHub publisher subject can be verified without attempting upload."
