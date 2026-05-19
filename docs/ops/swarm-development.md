@@ -41,6 +41,21 @@ cargo run -p xtask -- gate --check
 CX33 is not part of the default Rust gate during burn-in. It can be considered
 later for docs-only or small policy checks after timing and disk receipts exist.
 
+## JavaScript Action Runtime
+
+The routed workflow opts into the GitHub Actions Node 24 JavaScript action
+runtime with:
+
+```text
+FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true
+```
+
+This is scoped to `HL7v2 Rust Small` during burn-in so the future branch
+protection gate exercises the newer action runtime before GitHub-hosted runners
+make it the default. If an action compatibility issue appears, revert the
+workflow-scoped opt-in while updating the affected action; do not set
+`ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION` as a durable bypass.
+
 ## Current Proof
 
 As of 2026-05-19, the routed workflow is installed and the GitHub-hosted
