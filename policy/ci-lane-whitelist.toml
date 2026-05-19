@@ -178,6 +178,135 @@ review_after = "2026-06-09"
 expires = "2026-11-09"
 
 # ---------------------------------------------------------------------------
+# swarm_rust_small_* — Swarm routed Rust gate
+# ---------------------------------------------------------------------------
+[[lane]]
+id = "swarm_rust_small_router"
+workflow = ".github/workflows/em-ci-routed-rust.yml"
+job = "route-rust-small"
+display_name = "Route Rust Small"
+kind = "routing"
+tier = "frontdoor"
+default_pr = true
+blocking = false
+runner = "ubuntu_latest"
+base_lem = 1
+owner = "release/ci"
+intent = "Choose CX53, CX43, or GitHub-hosted fallback for the swarm Rust small gate."
+failure_mode = "Runner routing breaks or hides fallback behavior."
+proof_obligation = "Emit router_target, router_reason, repo, workflow, and run_id."
+evidence = ["job summary"]
+allowed_triggers = ["pull_request", "push:main", "merge_group", "workflow_dispatch"]
+duplicate_of = []
+review_after = "2026-06-30"
+expires = "2026-11-30"
+
+[[lane]]
+id = "swarm_rust_small_cx53"
+workflow = ".github/workflows/em-ci-routed-rust.yml"
+job = "rust-small-cx53"
+display_name = "Rust Small on CX53"
+kind = "rust-policy"
+tier = "frontdoor"
+default_pr = true
+blocking = false
+runner = "cx53"
+base_lem = 12
+owner = "release/ci"
+intent = "Run the Rust small gate on the primary CX53 self-hosted route for same-repo trusted work."
+failure_mode = "Self-hosted primary runner break or cargo gate failure reaches review unnoticed."
+proof_obligation = "Run cargo run -p xtask -- gate --check with disk guards and cleanup."
+evidence = ["job logs", "job summary"]
+allowed_triggers = ["pull_request", "push:main", "merge_group", "workflow_dispatch"]
+duplicate_of = ["fast_checks", "standard_tests", "msrv_smoke"]
+review_after = "2026-06-30"
+expires = "2026-11-30"
+
+[[lane]]
+id = "swarm_rust_small_cx43"
+workflow = ".github/workflows/em-ci-routed-rust.yml"
+job = "rust-small-cx43"
+display_name = "Rust Small on CX43"
+kind = "rust-policy"
+tier = "frontdoor"
+default_pr = true
+blocking = false
+runner = "cx43"
+base_lem = 15
+owner = "release/ci"
+intent = "Run the Rust small gate on the CX43 self-hosted fallback route for same-repo trusted work."
+failure_mode = "Self-hosted fallback runner break or cargo gate failure reaches review unnoticed."
+proof_obligation = "Run cargo run -p xtask -- gate --check with disk guards and cleanup."
+evidence = ["job logs", "job summary"]
+allowed_triggers = ["pull_request", "push:main", "merge_group", "workflow_dispatch"]
+duplicate_of = ["fast_checks", "standard_tests", "msrv_smoke"]
+review_after = "2026-06-30"
+expires = "2026-11-30"
+
+[[lane]]
+id = "swarm_rust_small_github"
+workflow = ".github/workflows/em-ci-routed-rust.yml"
+job = "rust-small-github"
+display_name = "Rust Small on GitHub Hosted"
+kind = "rust-policy"
+tier = "frontdoor"
+default_pr = true
+blocking = false
+runner = "ubuntu_latest"
+base_lem = 20
+owner = "release/ci"
+intent = "Run the Rust small gate on GitHub-hosted fallback when self-hosted routing is unavailable or unsafe."
+failure_mode = "Hosted fallback breaks or hides runner unavailability."
+proof_obligation = "Run cargo run -p xtask -- gate --check on Rust 1.95.0."
+evidence = ["job logs", "job summary"]
+allowed_triggers = ["pull_request", "push:main", "merge_group", "workflow_dispatch"]
+duplicate_of = ["fast_checks", "standard_tests", "msrv_smoke"]
+review_after = "2026-06-30"
+expires = "2026-11-30"
+
+[[lane]]
+id = "swarm_rust_small_docs_gate"
+workflow = ".github/workflows/em-ci-routed-rust.yml"
+job = "docs-gate"
+display_name = "Docs Gate"
+kind = "docs"
+tier = "frontdoor"
+default_pr = true
+blocking = false
+runner = "ubuntu_latest"
+base_lem = 1
+owner = "release/ci"
+intent = "Skip Rust compilation for docs-only swarm PRs after PR Plan classification."
+failure_mode = "Docs-only routing breaks and adds unnecessary Rust CI cost."
+proof_obligation = "Verify the docs-only route summary."
+evidence = ["job logs"]
+allowed_triggers = ["pull_request"]
+duplicate_of = []
+review_after = "2026-06-30"
+expires = "2026-11-30"
+
+[[lane]]
+id = "swarm_rust_small_result"
+workflow = ".github/workflows/em-ci-routed-rust.yml"
+job = "hl7v2-rust-small-result"
+display_name = "HL7v2 Rust Small Result"
+kind = "summary"
+tier = "frontdoor"
+default_pr = true
+blocking = true
+runner = "ubuntu_latest"
+base_lem = 1
+owner = "release/ci"
+intent = "Provide one stable branch-protection status for routed swarm Rust small proof."
+failure_mode = "Conditional implementation jobs are required directly or skipped routes are misreported as success."
+proof_obligation = "Aggregate route, implementation, hosted fallback, and docs-only results."
+evidence = ["job summary"]
+allowed_triggers = ["pull_request", "push:main", "merge_group", "workflow_dispatch"]
+duplicate_of = []
+review_after = "2026-06-30"
+expires = "2026-11-30"
+
+# ---------------------------------------------------------------------------
 # ripr_static_exposure -- advisory static mutation-exposure lane
 # ---------------------------------------------------------------------------
 [[lane]]
