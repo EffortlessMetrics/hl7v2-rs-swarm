@@ -41,6 +41,27 @@ cargo run -p xtask -- gate --check
 CX33 is not part of the default Rust gate during burn-in. It can be considered
 later for docs-only or small policy checks after timing and disk receipts exist.
 
+## Current Proof
+
+As of 2026-05-19, the routed workflow is installed and the GitHub-hosted
+fallback route is proven:
+
+- Push proof: `HL7v2 Rust Small` run
+  `https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26125581115`
+  passed on `main` at `190ee0aac3e71de19533adaf5e68d8f7158b997b`.
+- Manual dispatch proof: `HL7v2 Rust Small` run
+  `https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26126337302`
+  passed on `main` at `190ee0aac3e71de19533adaf5e68d8f7158b997b`.
+- The manual dispatch route selected `router_target=github` with
+  `router_reason=runner_api_failed` because `EM_RUNNER_READ_TOKEN` is not
+  configured in this repository yet.
+- In that manual dispatch run, `Rust Small on GitHub Hosted` passed,
+  `Rust Small on CX53` and `Rust Small on CX43` were skipped, and
+  `HL7v2 Rust Small Result` passed.
+
+This proves the normalized result check and hosted fallback behavior. It does
+not prove CX53 or CX43 execution.
+
 ## Self-hosted Guardrails
 
 - Run self-hosted jobs only for same-repository trusted PRs.

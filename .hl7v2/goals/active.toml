@@ -153,9 +153,16 @@ source_repo = "https://github.com/EffortlessMetrics/hl7v2-rs"
 marker = "docs/ops/swarm-development.md"
 current_state = [
   "hl7v2-rs-swarm is public and seeded from the source repository history.",
-  "New development should move to hl7v2-rs-swarm after routed CI and branch protection are proven.",
+  "The routed Rust Small workflow is installed and has proven GitHub-hosted fallback on push and manual dispatch.",
+  "New development should move to hl7v2-rs-swarm after routed CI and branch protection are fully proven.",
   "hl7v2-rs remains the source and release mirror until that role is deliberately changed.",
   "Runner group access and EM_RUNNER_READ_TOKEN scoping remain external admin setup before CX53/CX43 proof can complete.",
+]
+proof = [
+  "Push proof passed: https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26125581115",
+  "Manual dispatch proof passed: https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26126337302",
+  "Manual dispatch selected router_target=github and router_reason=runner_api_failed because EM_RUNNER_READ_TOKEN is not configured yet.",
+  "Manual dispatch passed Rust Small on GitHub Hosted and HL7v2 Rust Small Result while CX53 and CX43 jobs skipped.",
 ]
 planned_route = [
   "HL7v2 Rust Small = CX53 -> CX43 -> GitHub-hosted.",
@@ -166,7 +173,7 @@ non_claims = [
   "No release or publish secrets moved.",
   "No crates.io, TestPyPI, PyPI, npm, tag, or GitHub release action.",
   "No branch protection enabled yet.",
-  "No CX53, CX43, or hosted fallback proof claimed yet.",
+  "No CX53 or CX43 proof claimed yet.",
 ]
 
 [[work_item]]
