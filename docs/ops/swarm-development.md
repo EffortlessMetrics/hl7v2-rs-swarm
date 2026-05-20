@@ -168,6 +168,28 @@ The latest post-merge routed proofs after the Node 24 opt-in are:
 - `Rust Small on GitHub Hosted` and `HL7v2 Rust Small Result` passed while
   `Rust Small on CX53` and `Rust Small on CX43` were skipped.
 - On the same commit, `CI`, `CI Policy`, and `Security` also passed.
+- Runner setup verifier guard proof: PR #34, `ci: require runner token in
+  swarm setup check`, merged on 2026-05-20 at
+  `9b8a7e162470dc0bafcd1e684e1cc0793e027a59`.
+- Post-merge `HL7v2 Rust Small` run
+  `https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26174342959`
+  passed on `main` via GitHub-hosted fallback.
+- That route selected `router_target=github` with
+  `router_reason=runner_api_failed`; the route annotation recorded
+  `runner API returned HTTP 403; using GitHub-hosted fallback`.
+- `Rust Small on GitHub Hosted` and `HL7v2 Rust Small Result` passed while
+  `Rust Small on CX53` and `Rust Small on CX43` were skipped.
+- On the same commit, `CI`, `CI Policy`, `API Contracts`, `Coverage`, and
+  `Security` also passed.
+- Current-manual dispatch proof: `HL7v2 Rust Small` run
+  `https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26175197837`
+  passed on `main` at `9b8a7e162470dc0bafcd1e684e1cc0793e027a59` via
+  GitHub-hosted fallback.
+- That manual route selected `router_target=github` with
+  `router_reason=runner_api_failed`; the route annotation recorded
+  `runner API returned HTTP 403; using GitHub-hosted fallback`.
+- `Rust Small on GitHub Hosted` and `HL7v2 Rust Small Result` passed while
+  `Rust Small on CX53` and `Rust Small on CX43` were skipped.
 
 This proves the routed gate still works under the workflow-scoped Node 24
 JavaScript action runtime opt-in. It still does not prove CX53 or CX43
@@ -258,8 +280,11 @@ Live checks on 2026-05-20 still showed zero visible repository runners, no
 visible repository secrets, and no `main` branch protection. The token used for
 repo work could read repository secrets but could not list organization runner
 groups; GitHub returned `403` with the `admin:org` scope requirement for the
-runner-group API. Branch protection should remain deferred until CX53, CX43
-fallback, and hosted fallback are all proven.
+runner-group API. After PR #34, the blocked runner setup verifier also records
+the missing `EM_RUNNER_READ_TOKEN` repository secret, zero visible repository
+runners, and no visible CX53/CX43 routes without printing a success claim.
+Branch protection should remain deferred until CX53, CX43 fallback, and hosted
+fallback are all proven.
 
 Until those are complete, routed workflow proof can exercise hosted fallback
 behavior only. Do not claim CX53 or CX43 execution without run receipts.
