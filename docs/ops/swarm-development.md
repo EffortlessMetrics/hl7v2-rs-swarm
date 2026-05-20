@@ -130,15 +130,18 @@ cross-surface parity audit, and Nightly mutation output-directory guard updates
 have been synced into `hl7v2-rs-swarm`. The remaining source-vs-swarm tree delta
 is intentional swarm infrastructure:
 
+- `.github/workflows/ci-policy.yml`
 - `.github/workflows/em-ci-routed-rust.yml`
+- `docs/ci/ci-lane-whitelist.md`
 - `docs/ops/swarm-development.md`
 - swarm routed-lane entries in `policy/ci-lane-whitelist.toml`
 - swarm workflow allowlist entry in `policy/workflow-allowlist.toml`
+- `xtask` source-sync boundary command wiring
 - the active-goal work item for the swarm cutover
 
 Do not remove those deltas when syncing source changes into the swarm repo.
 
-The local source-sync boundary check is:
+The source-sync boundary check is:
 
 ```bash
 cargo run -p xtask -- check-source-sync-boundary --source-ref source/main --swarm-ref HEAD
@@ -147,6 +150,10 @@ cargo run -p xtask -- check-source-sync-boundary --source-ref source/main --swar
 It fails when any source-vs-swarm delta appears outside the intentional swarm
 infrastructure allowlist. Run it after fetching both `origin` and `source`
 before claiming the repositories are synchronized.
+The `CI Policy` workflow runs the same check on non-PR events after fetching
+`EffortlessMetrics/hl7v2-rs` as the `source` remote. It is intentionally not a
+pull-request step because normal swarm development may create product deltas
+before the source mirror is updated.
 
 ## Self-hosted Guardrails
 

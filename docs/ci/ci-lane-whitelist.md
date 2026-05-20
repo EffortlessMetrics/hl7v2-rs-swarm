@@ -66,6 +66,20 @@ currently requires `Fast Checks`; its intended normalized target is
 `HL7v2 Rust Small Result`, only after the routed CX53, CX43 fallback, and
 GitHub-hosted fallback proofs are complete.
 
+## Source Sync Boundary
+
+On non-PR events, the `CI Policy` workflow also fetches
+`EffortlessMetrics/hl7v2-rs` as the `source` remote and runs:
+
+```bash
+cargo run -p xtask -- check-source-sync-boundary --source-ref source/main --swarm-ref HEAD
+```
+
+That check keeps the swarm repository synchronized with the source repository
+except for intentional swarm-only infrastructure. It is not run on pull request
+events because normal swarm development may introduce product deltas before the
+source mirror is updated.
+
 ## Inventory
 
 See `docs/ci/inventory.md` for the current lane inventory table.

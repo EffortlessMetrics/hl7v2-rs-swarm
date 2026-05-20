@@ -10154,6 +10154,7 @@ fn check_swarm_routed_rust_text_invariants(
 
 fn allowed_source_sync_boundary_paths() -> BTreeSet<&'static str> {
     BTreeSet::from([
+        ".github/workflows/ci-policy.yml",
         ".github/workflows/em-ci-routed-rust.yml",
         ".hl7v2/goals/active.toml",
         "docs/ci/ci-lane-whitelist.md",
@@ -11056,6 +11057,7 @@ jobs:
     #[test]
     fn source_sync_boundary_accepts_intentional_swarm_paths() -> Result<()> {
         let diff = "\
+A\t.github/workflows/ci-policy.yml
 A\t.github/workflows/em-ci-routed-rust.yml
 M\t.hl7v2/goals/active.toml
 M\tdocs/ci/ci-lane-whitelist.md
