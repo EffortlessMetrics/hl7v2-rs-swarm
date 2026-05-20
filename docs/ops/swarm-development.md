@@ -135,6 +135,19 @@ The latest post-merge routed proofs after the Node 24 opt-in are:
   `Rust Small on CX53` and `Rust Small on CX43` were skipped.
 - On the same commit, `CI`, `CI Policy`, `API Contracts`, `Coverage`, and
   `Security` also passed.
+- Evidence parity support-map audit guard sync proof: PR #30, `ci: guard
+  evidence parity support map audit`, merged on 2026-05-20 at
+  `ef4922fe9e6aeffbd08a30cea4c043d92399e0eb`.
+- Post-merge `HL7v2 Rust Small` run
+  `https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26167964447`
+  passed on `main` via GitHub-hosted fallback.
+- That route selected `router_target=github` with
+  `router_reason=runner_api_failed`; the route annotation recorded
+  `runner API returned HTTP 403; using GitHub-hosted fallback`.
+- `Rust Small on GitHub Hosted` and `HL7v2 Rust Small Result` passed while
+  `Rust Small on CX53` and `Rust Small on CX43` were skipped.
+- On the same commit, `CI`, `CI Policy`, `API Contracts`, `Coverage`, and
+  `Security` also passed.
 - A local pre-protection verifier refresh passed and confirmed branch
   protection is still intentionally deferred:
   `cargo +1.95.0 run -p xtask -- check-swarm-branch-protection --allow-unprotected`.
@@ -146,9 +159,10 @@ execution.
 ## Source Sync Boundary
 
 As of 2026-05-20, source-only TestPyPI OIDC, release-readiness receipt,
-cross-surface parity audit, and Nightly mutation output-directory guard updates
-have been synced into `hl7v2-rs-swarm`. The remaining source-vs-swarm tree delta
-is intentional swarm infrastructure:
+cross-surface parity audit, Nightly mutation output-directory guard, and
+evidence parity support-map audit guard updates have been synced into
+`hl7v2-rs-swarm`. The remaining source-vs-swarm tree delta is intentional swarm
+infrastructure:
 
 - `.github/workflows/ci-policy.yml`
 - `.github/workflows/em-ci-routed-rust.yml`
