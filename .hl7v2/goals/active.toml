@@ -166,7 +166,7 @@ current_state = [
   "CI Policy runs the source-sync boundary guard on non-PR events after fetching the source repository.",
   "check-ci-lane-whitelist now guards the CI Policy source-sync fetch/check wiring so it cannot be removed silently.",
   "check-swarm-branch-protection verifies the eventual live branch protection state requires only HL7v2 Rust Small Result.",
-  "check-swarm-runner-setup verifies the eventual live runner setup exposes online CX53 and CX43 rust-small trusted-pr runners.",
+  "check-swarm-runner-setup verifies the eventual live runner setup exposes EM_RUNNER_READ_TOKEN plus online CX53 and CX43 rust-small trusted-pr runners.",
   "New development should move to hl7v2-rs-swarm after routed CI and branch protection are fully proven.",
   "hl7v2-rs remains the source and release mirror until that role is deliberately changed.",
   "Runner group access and EM_RUNNER_READ_TOKEN scoping remain external admin setup before CX53/CX43 proof can complete.",
