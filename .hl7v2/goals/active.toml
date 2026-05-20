@@ -170,7 +170,8 @@ current_state = [
   "New development should move to hl7v2-rs-swarm after routed CI and branch protection are fully proven.",
   "hl7v2-rs remains the source and release mirror until that role is deliberately changed.",
   "Runner group access and EM_RUNNER_READ_TOKEN scoping remain external admin setup before CX53/CX43 proof can complete.",
-  "The current GitHub token can read repository secrets but cannot list organization runner groups; the runner-group API returned 403 requiring admin:org scope.",
+  "The current local gh identity receives 404 for the repository EM_RUNNER_READ_TOKEN secret, while the hosted workflow receives a masked EM_RUNNER_READ_TOKEN but gets HTTP 403 from the repository runner API.",
+  "The current GitHub token cannot list organization runner groups; the runner-group API returned 403 requiring admin:org scope.",
 ]
 proof = [
   "Push proof passed: https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26125581115",
@@ -210,7 +211,11 @@ proof = [
   "Post-merge HL7v2 Rust Small proof passed: https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26174342959 via GitHub-hosted fallback with router_reason=runner_api_failed; CX53 and CX43 skipped.",
   "Post-merge main also passed CI, CI Policy, API Contracts, Coverage, and Security on 9b8a7e162470dc0bafcd1e684e1cc0793e027a59.",
   "Current-manual dispatch proof passed: https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26175197837 on main commit 9b8a7e162470dc0bafcd1e684e1cc0793e027a59 via GitHub-hosted fallback with router_reason=runner_api_failed; CX53 and CX43 skipped.",
+  "Source profile inheritance cycle sync proof merged in PR #36 at 6b1a99eaaaa307fc1171ec1cfe1f4d148b7e9217.",
+  "Post-merge HL7v2 Rust Small proof passed: https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26179802862 via GitHub-hosted fallback with router_reason=runner_api_failed; the hosted workflow had a masked EM_RUNNER_READ_TOKEN but the runner API returned HTTP 403; CX53 and CX43 skipped.",
+  "Post-merge main also passed CI, CI Policy, Coverage, Python Wheels, Security, and Server Docker Smoke on 6b1a99eaaaa307fc1171ec1cfe1f4d148b7e9217.",
   "Post-PR-34 blocked runner setup verifier recorded missing EM_RUNNER_READ_TOKEN, zero visible repository runners, and no visible CX53/CX43 routes without printing a success claim.",
+  "Current blocked runner setup verifier still records the repository EM_RUNNER_READ_TOKEN secret as not visible to the local gh identity, zero visible repository runners, and no visible CX53/CX43 routes without printing a success claim.",
   "Local source-sync boundary guard command: cargo +1.95.0 run -p xtask -- check-source-sync-boundary --source-ref source/main --swarm-ref HEAD",
   "Blocked runner setup verifier command: cargo +1.95.0 run -p xtask -- check-swarm-runner-setup --allow-unavailable",
   "Final runner setup verifier command: cargo +1.95.0 run -p xtask -- check-swarm-runner-setup",
