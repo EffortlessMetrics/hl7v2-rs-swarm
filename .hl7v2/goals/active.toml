@@ -159,6 +159,7 @@ current_state = [
   "hl7v2-rs-swarm is public and seeded from the source repository history.",
   "The routed Rust Small workflow is installed and has proven GitHub-hosted fallback on push and manual dispatch.",
   "The routed Rust Small workflow reports missing runner-read secret setup separately from runner API failures.",
+  "The routed Rust Small workflow reports HTTP 401 and HTTP 403 runner API failures as explicit token unauthorized/forbidden fallback reasons.",
   "The routed Rust Small workflow opts into the GitHub Actions Node 24 JavaScript action runtime during burn-in.",
   "Source-only TestPyPI OIDC, release-readiness receipt, cross-surface parity audit, Nightly mutation output-directory guard, and evidence parity support-map audit guard updates have been synced into hl7v2-rs-swarm.",
   "The remaining source-vs-swarm tree delta is the intentional routed CI workflow, CI Policy source-sync step, swarm ops marker, swarm policy allowlist entries, xtask source-sync guard, and this cutover work item.",
