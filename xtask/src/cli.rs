@@ -161,6 +161,15 @@ pub(crate) enum Commands {
         #[arg(long)]
         allow_unprotected: bool,
     },
+    /// Verify swarm CX53/CX43 runner setup is visible through the repository runner API
+    CheckSwarmRunnerSetup {
+        /// GitHub repository owner/name to inspect
+        #[arg(long, default_value = "EffortlessMetrics/hl7v2-rs-swarm")]
+        repo: String,
+        /// Treat missing runner access/setup as an expected blocked cutover state
+        #[arg(long)]
+        allow_unavailable: bool,
+    },
     /// Verify cross-surface evidence parity manifest state and non-claim boundaries
     CheckEvidenceParity,
     /// Run the local cross-surface evidence parity acceptance suite
