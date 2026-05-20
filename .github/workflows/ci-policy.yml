@@ -33,3 +33,14 @@ jobs:
 
       - name: Check CI lane whitelist
         run: cargo run -p xtask -- check-ci-lane-whitelist
+
+      - name: Fetch source repository main
+        if: github.event_name != 'pull_request'
+        run: |
+          git remote remove source 2>/dev/null || true
+          git remote add source https://github.com/EffortlessMetrics/hl7v2-rs.git
+          git fetch --no-tags --depth=1 source main
+
+      - name: Check source/swarm sync boundary
+        if: github.event_name != 'pull_request'
+        run: cargo run -p xtask -- check-source-sync-boundary --source-ref source/main --swarm-ref HEAD
