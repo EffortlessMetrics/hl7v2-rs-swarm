@@ -235,13 +235,45 @@ This proves the routed gate still works under the workflow-scoped Node 24
 JavaScript action runtime opt-in. It still does not prove CX53 or CX43
 execution.
 
+Post-queue cleanup and sync proof:
+
+- Source PR #855, `devex: remove legacy cargo-make entrypoint`, merged on
+  2026-05-20 and was synced to swarm in PR #41 at
+  `0b98c48f896461c0e292ea66f13f94af203cbeb9`.
+- Source PR #856, `docs: add source-of-truth stack guide`, merged on
+  2026-05-20 and was synced to swarm in PR #40 at
+  `028d70647f0c51bebb41cffac804b0e74b43a028`.
+- Source PR #857, `test: cover lifecycle retention edge cases`, merged on
+  2026-05-20 and was synced to swarm in PR #42 at
+  `c947ba1422cb9abc1267f5335a015476acb85001`.
+- Swarm-only refactor PRs #43, #44, #45, and #46 were closed rather than
+  merged because they were source-affecting product/refactor changes without a
+  source-first merge or explicit swarm-only exception.
+- Post-merge `HL7v2 Rust Small` run
+  `https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26189447394`
+  passed on `main` at `c947ba1422cb9abc1267f5335a015476acb85001`.
+- The result job logged `router_target=github`,
+  `router_reason=runner_token_forbidden`,
+  `ROUTER_REPO=EffortlessMetrics/hl7v2-rs-swarm`,
+  `ROUTER_WORKFLOW=em-ci-routed-rust`, and `ROUTER_RUN_ID=26189447394`.
+- `Rust Small on GitHub Hosted` and `HL7v2 Rust Small Result` passed while
+  `Rust Small on CX53` and `Rust Small on CX43` were skipped.
+- On the same commit, `CI`, `CI Policy`, `Python Wheels`, `Security`, and
+  `Server Docker Smoke` also passed.
+- A local sync-boundary refresh after fetching `source/main` passed with nine
+  intentional swarm-only deltas:
+  `cargo +1.95.0 run -p xtask -- check-source-sync-boundary --source-ref source/main --swarm-ref HEAD`.
+- Local blocked-state verifiers still showed the admin boundary: no locally
+  visible `EM_RUNNER_READ_TOKEN`, zero visible repository runners, no online
+  CX53/CX43 labels, and branch protection intentionally deferred.
+
 ## Source Sync Boundary
 
 As of 2026-05-20, source-only TestPyPI OIDC, release-readiness receipt,
-cross-surface parity audit, Nightly mutation output-directory guard, and
-evidence parity support-map audit guard updates have been synced into
-`hl7v2-rs-swarm`. The remaining source-vs-swarm tree delta is intentional swarm
-infrastructure:
+cross-surface parity audit, Nightly mutation output-directory guard, evidence
+parity support-map audit guard, cargo-make cleanup, source-of-truth guide, and
+lifecycle retention coverage updates have been synced into `hl7v2-rs-swarm`.
+The remaining source-vs-swarm tree delta is intentional swarm infrastructure:
 
 - `.github/workflows/ci-policy.yml`
 - `.github/workflows/em-ci-routed-rust.yml`
