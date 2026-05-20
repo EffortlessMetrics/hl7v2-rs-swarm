@@ -62,7 +62,7 @@ Without this system, workers rely on stale chat context, old PR descriptions, am
 With this system, the repo itself tells workers what to do:
 
 ```text
-.codex/goals/active.toml
+.hl7v2/goals/active.toml
   -> linked implementation plan
     -> linked spec
       -> linked proposal
@@ -136,10 +136,11 @@ docs/
   proposals/
   specs/
   adr/
+  audits/
+  plans/
   status/
   handoffs/
-plans/
-.codex/goals/
+.hl7v2/goals/
 policy/
 ```
 
@@ -198,7 +199,7 @@ Examples:
 - Claim stability -> `docs/status/SUPPORT_TIERS.md`
 - CI lane intent/cost -> `policy/ci-lane-whitelist.toml`
 - Package classification -> `policy/package-boundary.toml`
-- Active agent work -> `.codex/goals/active.toml`
+- Active agent work -> `.hl7v2/goals/active.toml`
 - PR order -> `plans/<milestone>/implementation-plan.md`
 - Initiative rationale -> `docs/proposals/...`
 - Behavior contract -> `docs/specs/...`
@@ -227,18 +228,22 @@ Always verify named commands/lints/crates/workflows/features exist before relyin
 
 ## 9. CI enforcement
 
-Recommended checks:
+Recommended checks should use repo-local commands that actually exist. In this
+repo, the source-of-truth stack is guarded by commands such as:
 
 ```text
-cargo xtask check-doc-artifacts
-cargo xtask check-goals
-cargo xtask check-package-boundary
-cargo xtask check-ci-lanes
-cargo xtask check-support-tiers
-cargo xtask policy-report
+cargo run -p xtask -- check-doc-links
+cargo run -p xtask -- check-file-policy
+cargo run -p xtask -- check-ci-lane-whitelist
+cargo run -p xtask -- check-python-publish-policy
+cargo run -p xtask -- check-evidence-parity
+cargo run -p xtask -- policy-report
 ```
 
-These checks enforce parsing, link integrity, valid statuses, proof command presence, and policy completeness.
+These checks enforce link integrity, file-policy coverage, CI lane policy,
+Python release boundaries, evidence parity claims, and policy completeness.
+Future document-artifact or goal-manifest checks should be added only after the
+repo has concrete commands for them.
 
 ---
 
