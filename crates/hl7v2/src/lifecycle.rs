@@ -232,10 +232,9 @@ mod tests {
         assert_eq!(final_state, MessageState::Purged);
     }
 
-
     #[test]
     fn prepare_metadata_uses_unknown_when_msh_control_id_missing() {
-        let hl7 = b"MSH|^~\&|SENDER|FACILITY|RECEIVER|FACILITY|20250101120000||ADT^A01||P|2.5\r";
+        let hl7 = b"MSH|^~\\&|SENDER|FACILITY|RECEIVER|FACILITY|20250101120000||ADT^A01||P|2.5\r";
         let message = Message::with_segments(vec![Segment::new(b"MSH")]);
 
         let archive = MessageArchive::new(RetentionPolicy::default());
