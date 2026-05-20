@@ -157,7 +157,7 @@ current_state = [
   "The routed Rust Small workflow is installed and has proven GitHub-hosted fallback on push and manual dispatch.",
   "The routed Rust Small workflow reports missing runner-read secret setup separately from runner API failures.",
   "The routed Rust Small workflow opts into the GitHub Actions Node 24 JavaScript action runtime during burn-in.",
-  "Source-only TestPyPI OIDC and release-readiness receipt updates have been synced into hl7v2-rs-swarm.",
+  "Source-only TestPyPI OIDC, release-readiness receipt, and cross-surface parity audit updates have been synced into hl7v2-rs-swarm.",
   "The Nightly mutation output-directory guard is synced from source into hl7v2-rs-swarm.",
   "The remaining source-vs-swarm tree delta is the intentional routed CI workflow, swarm ops marker, swarm policy allowlist entries, and this cutover work item.",
   "New development should move to hl7v2-rs-swarm after routed CI and branch protection are fully proven.",
@@ -180,6 +180,10 @@ proof = [
   "Both newer push proofs also passed CI, CI Policy, and Security on their main commits.",
   "Nightly mutation output-directory guard sync push proof passed: https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26141263822 on main commit 3e148421e4050041f15283238b98a477a66be9e9.",
   "The same commit passed CI, CI Policy, API Contracts, Coverage, and Security.",
+  "Source parity audit sync push proof passed: https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26145221001 on main commit 2e73bf92b14b480319dfef58dfd4208f698a83f4.",
+  "That route selected router_target=github and router_reason=runner_api_failed; the workflow annotation recorded runner API HTTP 403 and GitHub-hosted fallback.",
+  "That run passed Rust Small on GitHub Hosted and HL7v2 Rust Small Result while CX53 and CX43 skipped.",
+  "The same commit passed CI, CI Policy, and Security.",
   "Live checks on 2026-05-20 still showed zero visible repository runners, no visible repository secrets, and no main branch protection.",
 ]
 planned_route = [

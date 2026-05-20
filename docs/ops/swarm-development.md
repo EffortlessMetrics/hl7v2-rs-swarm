@@ -109,6 +109,15 @@ The latest post-merge routed proofs after the Node 24 opt-in are:
   passed on `main` at `3e148421e4050041f15283238b98a477a66be9e9`.
 - On the same commit, `CI`, `CI Policy`, `API Contracts`, `Coverage`, and
   `Security` also passed.
+- Source parity audit sync proof: `HL7v2 Rust Small` run
+  `https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26145221001`
+  passed on `main` at `2e73bf92b14b480319dfef58dfd4208f698a83f4`.
+- That route selected `router_target=github` with
+  `router_reason=runner_api_failed`; the route annotation recorded
+  `runner API returned HTTP 403; using GitHub-hosted fallback`.
+- `Rust Small on GitHub Hosted` and `HL7v2 Rust Small Result` passed while
+  `Rust Small on CX53` and `Rust Small on CX43` were skipped.
+- On the same commit, `CI`, `CI Policy`, and `Security` also passed.
 
 This proves the routed gate still works under the workflow-scoped Node 24
 JavaScript action runtime opt-in. It still does not prove CX53 or CX43
@@ -116,10 +125,10 @@ execution.
 
 ## Source Sync Boundary
 
-As of 2026-05-20, source-only TestPyPI OIDC, release-readiness receipt, and
-Nightly mutation output-directory guard updates have been synced into
-`hl7v2-rs-swarm`. The remaining source-vs-swarm tree delta is intentional swarm
-infrastructure:
+As of 2026-05-20, source-only TestPyPI OIDC, release-readiness receipt,
+cross-surface parity audit, and Nightly mutation output-directory guard updates
+have been synced into `hl7v2-rs-swarm`. The remaining source-vs-swarm tree delta
+is intentional swarm infrastructure:
 
 - `.github/workflows/em-ci-routed-rust.yml`
 - `docs/ops/swarm-development.md`
