@@ -149,6 +149,18 @@ pub(crate) enum Commands {
         #[arg(long, default_value = "HEAD")]
         swarm_ref: String,
     },
+    /// Verify swarm branch protection requires only the normalized Rust Small result
+    CheckSwarmBranchProtection {
+        /// GitHub repository owner/name to inspect
+        #[arg(long, default_value = "EffortlessMetrics/hl7v2-rs-swarm")]
+        repo: String,
+        /// Branch name to inspect
+        #[arg(long, default_value = "main")]
+        branch: String,
+        /// Treat an unprotected branch as an expected blocked cutover state
+        #[arg(long)]
+        allow_unprotected: bool,
+    },
     /// Verify cross-surface evidence parity manifest state and non-claim boundaries
     CheckEvidenceParity,
     /// Run the local cross-surface evidence parity acceptance suite

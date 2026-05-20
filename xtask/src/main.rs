@@ -78,6 +78,11 @@ fn main() -> Result<()> {
             source_ref,
             swarm_ref,
         } => check_source_sync_boundary(&source_ref, &swarm_ref)?,
+        Commands::CheckSwarmBranchProtection {
+            repo,
+            branch,
+            allow_unprotected,
+        } => check_swarm_branch_protection(&repo, &branch, allow_unprotected)?,
         Commands::CheckEvidenceParity => check_evidence_parity()?,
         Commands::CheckEvidenceParityAcceptance { include_python } => {
             check_evidence_parity_acceptance(include_python)?;
@@ -1038,6 +1043,15 @@ fn run_command_capture_owned(cmd: &str, args: &[String]) -> Result<String> {
     }
 
     Ok(String::from_utf8(output.stdout)?)
+}
+
+fn run_command_capture_status(cmd: &str, args: &[String]) -> Result<(Option<i32>, String, String)> {
+    let output = Command::new(cmd).args(args).output()?;
+    Ok((
+        output.status.code(),
+        String::from_utf8(output.stdout)?,
+        String::from_utf8(output.stderr)?,
+    ))
 }
 
 fn run_command_with_env_in_dir(
@@ -10259,6 +10273,90 @@ fn source_sync_boundary_text_errors(
     errors
 }
 
+const SWARM_BRANCH_PROTECTION_REQUIRED_CHECK: &str = "HL7v2 Rust Small Result";
+
+fn check_swarm_branch_protection(repo: &str, branch: &str, allow_unprotected: bool) -> Result<()> {
+    println!("🔎 Checking swarm branch protection for {repo}:{branch}...");
+    let api_path = format!("repos/{repo}/branches/{branch}/protection");
+    let args = vec!["api".to_string(), api_path];
+    let (code, stdout, stderr) = run_command_capture_status("gh", &args)?;
+
+    if code != Some(0) {
+        let combined = format!("{stdout}\n{stderr}");
+        if allow_unprotected && combined.contains("Branch not protected") {
+            println!(
+                "⚠️ swarm branch protection is not enabled yet; allowed by --allow-unprotected"
+            );
+            return Ok(());
+        }
+
+        return Err(anyhow!(
+            "cannot read branch protection for {repo}:{branch}; gh exited with {code:?}\nstdout:\n{stdout}\nstderr:\n{stderr}"
+        ));
+    }
+
+    let value: serde_json::Value = serde_json::from_str(&stdout)
+        .map_err(|e| anyhow!("cannot parse branch protection JSON for {repo}:{branch}: {e}"))?;
+    let errors = swarm_branch_protection_errors(&value);
+    if !errors.is_empty() {
+        for error in &errors {
+            eprintln!("❌ {error}");
+        }
+        return Err(anyhow!(
+            "swarm branch protection must require exactly `{SWARM_BRANCH_PROTECTION_REQUIRED_CHECK}`"
+        ));
+    }
+
+    println!("✅ swarm branch protection requires only `{SWARM_BRANCH_PROTECTION_REQUIRED_CHECK}`");
+    Ok(())
+}
+
+fn swarm_branch_protection_errors(value: &serde_json::Value) -> Vec<String> {
+    let Some(required_status_checks) = value.get("required_status_checks") else {
+        return vec!["branch protection has no required_status_checks object".to_string()];
+    };
+    if required_status_checks.is_null() {
+        return vec!["branch protection has required_status_checks=null".to_string()];
+    }
+
+    let mut required = BTreeSet::new();
+    if let Some(contexts) = required_status_checks
+        .get("contexts")
+        .and_then(serde_json::Value::as_array)
+    {
+        for context in contexts {
+            if let Some(context) = context.as_str() {
+                required.insert(context.to_string());
+            }
+        }
+    }
+    if let Some(checks) = required_status_checks
+        .get("checks")
+        .and_then(serde_json::Value::as_array)
+    {
+        for check in checks {
+            if let Some(context) = check.get("context").and_then(serde_json::Value::as_str) {
+                required.insert(context.to_string());
+            }
+        }
+    }
+
+    if required.is_empty() {
+        return vec!["branch protection has no required status check contexts".to_string()];
+    }
+
+    let expected = BTreeSet::from([SWARM_BRANCH_PROTECTION_REQUIRED_CHECK.to_string()]);
+    if required == expected {
+        Vec::new()
+    } else {
+        let required_list = required.into_iter().collect::<Vec<_>>().join(", ");
+        vec![format!(
+            "required status checks are [{required_list}], expected only `{}`",
+            SWARM_BRANCH_PROTECTION_REQUIRED_CHECK
+        )]
+    }
+}
+
 fn check_source_sync_boundary(source_ref: &str, swarm_ref: &str) -> Result<()> {
     println!("🔎 Checking source/swarm sync boundary...");
     let source_commit = format!("{source_ref}^{{commit}}");
@@ -11226,6 +11324,92 @@ M\tdocs/ops/swarm-development.md
         } else {
             Err(anyhow!(
                 "source-sync boundary should reject product deltas: {errors:?}"
+            ))
+        }
+    }
+
+    #[test]
+    fn swarm_branch_protection_accepts_single_result_context() -> Result<()> {
+        let value: serde_json::Value = serde_json::json!({
+            "required_status_checks": {
+                "contexts": ["HL7v2 Rust Small Result"],
+                "checks": []
+            }
+        });
+
+        let errors = swarm_branch_protection_errors(&value);
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "single normalized swarm required check should be accepted: {errors:?}"
+            ))
+        }
+    }
+
+    #[test]
+    fn swarm_branch_protection_accepts_checks_array_context() -> Result<()> {
+        let value: serde_json::Value = serde_json::json!({
+            "required_status_checks": {
+                "contexts": [],
+                "checks": [{"context": "HL7v2 Rust Small Result", "app_id": 15368}]
+            }
+        });
+
+        let errors = swarm_branch_protection_errors(&value);
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "GitHub checks-array normalized swarm required check should be accepted: {errors:?}"
+            ))
+        }
+    }
+
+    #[test]
+    fn swarm_branch_protection_rejects_conditional_jobs() -> Result<()> {
+        let value: serde_json::Value = serde_json::json!({
+            "required_status_checks": {
+                "contexts": [
+                    "HL7v2 Rust Small Result",
+                    "Route Rust Small",
+                    "Rust Small on CX53"
+                ],
+                "checks": []
+            }
+        });
+
+        let errors = swarm_branch_protection_errors(&value);
+        if errors
+            .iter()
+            .any(|error| error.contains("Route Rust Small"))
+            && errors
+                .iter()
+                .any(|error| error.contains("Rust Small on CX53"))
+        {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "conditional routed jobs should be rejected as required checks: {errors:?}"
+            ))
+        }
+    }
+
+    #[test]
+    fn swarm_branch_protection_rejects_missing_status_checks() -> Result<()> {
+        let value: serde_json::Value = serde_json::json!({
+            "required_status_checks": null
+        });
+
+        let errors = swarm_branch_protection_errors(&value);
+        if errors
+            .iter()
+            .any(|error| error.contains("required_status_checks=null"))
+        {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "missing required status checks should be rejected: {errors:?}"
             ))
         }
     }

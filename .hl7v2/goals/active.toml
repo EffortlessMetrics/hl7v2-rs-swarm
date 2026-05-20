@@ -163,6 +163,7 @@ current_state = [
   "The source-sync boundary has an xtask guard so product, policy, docs, proof, or security changes cannot remain stranded without appearing as unexpected deltas.",
   "CI Policy runs the source-sync boundary guard on non-PR events after fetching the source repository.",
   "check-ci-lane-whitelist now guards the CI Policy source-sync fetch/check wiring so it cannot be removed silently.",
+  "check-swarm-branch-protection verifies the eventual live branch protection state requires only HL7v2 Rust Small Result.",
   "New development should move to hl7v2-rs-swarm after routed CI and branch protection are fully proven.",
   "hl7v2-rs remains the source and release mirror until that role is deliberately changed.",
   "Runner group access and EM_RUNNER_READ_TOKEN scoping remain external admin setup before CX53/CX43 proof can complete.",
@@ -193,6 +194,8 @@ proof = [
   "Post-merge main also passed CI, API Contracts, Coverage, and Security on 10a2fc1dfa44e79645606d6b6ddf70cbfd584775.",
   "Live checks on 2026-05-20 still showed zero visible repository runners, no visible repository secrets, and no main branch protection.",
   "Local source-sync boundary guard command: cargo +1.95.0 run -p xtask -- check-source-sync-boundary --source-ref source/main --swarm-ref HEAD",
+  "Pre-protection verifier command: cargo +1.95.0 run -p xtask -- check-swarm-branch-protection --allow-unprotected",
+  "Final branch protection verifier command: cargo +1.95.0 run -p xtask -- check-swarm-branch-protection",
 ]
 planned_route = [
   "HL7v2 Rust Small = CX53 -> CX43 -> GitHub-hosted.",

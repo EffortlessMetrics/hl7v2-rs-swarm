@@ -22,6 +22,10 @@
 - Once enabled, the intended required check is the normalized result check:
   `HL7v2 Rust Small Result`.
 - Do not require conditional implementation jobs directly in branch protection.
+- After branch protection is enabled, verify the live GitHub state with
+  `cargo run -p xtask -- check-swarm-branch-protection`. Before it is enabled,
+  `cargo run -p xtask -- check-swarm-branch-protection --allow-unprotected`
+  records the expected blocked state without claiming completion.
 
 ## Initial Routed CI Target
 
