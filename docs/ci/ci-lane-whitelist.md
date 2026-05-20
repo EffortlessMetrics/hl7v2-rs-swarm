@@ -52,6 +52,8 @@ The checker verifies:
 - The swarm routed Rust workflow keeps one normalized result check, the expected
   CX53/CX43/GitHub-hosted routes, self-hosted runner labels, fallback reasons,
   and result-job route aggregation.
+- The Nightly mutation lane creates its `target/nightly-mutation` output
+  directory before invoking `cargo mutants`.
 - `default_pr = true` + `expensive = true` requires a valid exception.
 - No expired exceptions remain.
 - Required fields are present.
