@@ -138,6 +138,16 @@ is intentional swarm infrastructure:
 
 Do not remove those deltas when syncing source changes into the swarm repo.
 
+The local source-sync boundary check is:
+
+```bash
+cargo run -p xtask -- check-source-sync-boundary --source-ref source/main --swarm-ref HEAD
+```
+
+It fails when any source-vs-swarm delta appears outside the intentional swarm
+infrastructure allowlist. Run it after fetching both `origin` and `source`
+before claiming the repositories are synchronized.
+
 ## Self-hosted Guardrails
 
 - Run self-hosted jobs only for same-repository trusted PRs.

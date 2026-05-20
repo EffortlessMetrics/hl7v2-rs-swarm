@@ -140,6 +140,15 @@ pub(crate) enum Commands {
     },
     /// Verify CI lane whitelist: coverage, required fields, expensive-default exceptions
     CheckCiLaneWhitelist,
+    /// Verify swarm differs from source only by intentional swarm infrastructure
+    CheckSourceSyncBoundary {
+        /// Source repository ref to compare from
+        #[arg(long, default_value = "source/main")]
+        source_ref: String,
+        /// Swarm repository ref to compare to
+        #[arg(long, default_value = "HEAD")]
+        swarm_ref: String,
+    },
     /// Verify cross-surface evidence parity manifest state and non-claim boundaries
     CheckEvidenceParity,
     /// Run the local cross-surface evidence parity acceptance suite
