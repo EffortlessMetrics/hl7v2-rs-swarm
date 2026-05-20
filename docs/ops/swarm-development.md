@@ -122,6 +122,22 @@ The latest post-merge routed proofs after the Node 24 opt-in are:
 - `Rust Small on GitHub Hosted` and `HL7v2 Rust Small Result` passed while
   `Rust Small on CX53` and `Rust Small on CX43` were skipped.
 - On the same commit, `CI`, `CI Policy`, and `Security` also passed.
+- Branch-protection verifier proof: PR #24, `ci: add swarm branch protection
+  verifier`, merged on 2026-05-20 at
+  `52d0abad93842355caebe9afeccb2c10811d7002`.
+- Post-merge `HL7v2 Rust Small` run
+  `https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26151749719`
+  passed on `main` via GitHub-hosted fallback.
+- That route selected `router_target=github` with
+  `router_reason=runner_api_failed`; the route annotation recorded
+  `runner API returned HTTP 403; using GitHub-hosted fallback`.
+- `Rust Small on GitHub Hosted` and `HL7v2 Rust Small Result` passed while
+  `Rust Small on CX53` and `Rust Small on CX43` were skipped.
+- On the same commit, `CI`, `CI Policy`, `API Contracts`, `Coverage`, and
+  `Security` also passed.
+- A local pre-protection verifier refresh passed and confirmed branch
+  protection is still intentionally deferred:
+  `cargo +1.95.0 run -p xtask -- check-swarm-branch-protection --allow-unprotected`.
 
 This proves the routed gate still works under the workflow-scoped Node 24
 JavaScript action runtime opt-in. It still does not prove CX53 or CX43
