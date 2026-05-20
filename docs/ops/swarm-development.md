@@ -153,7 +153,8 @@ before claiming the repositories are synchronized.
 The `CI Policy` workflow runs the same check on non-PR events after fetching
 `EffortlessMetrics/hl7v2-rs` as the `source` remote. It is intentionally not a
 pull-request step because normal swarm development may create product deltas
-before the source mirror is updated.
+before the source mirror is updated. `check-ci-lane-whitelist` guards that
+workflow wiring so the source-sync step cannot be removed silently.
 
 ## Self-hosted Guardrails
 
