@@ -74,6 +74,10 @@ fn main() -> Result<()> {
             keep_existing,
         } => python_public_registry_proof(root, &python, index, version, keep_existing)?,
         Commands::CheckCiLaneWhitelist => check_ci_lane_whitelist()?,
+        Commands::CheckSourceSyncBoundary {
+            source_ref,
+            swarm_ref,
+        } => check_source_sync_boundary(&source_ref, &swarm_ref)?,
         Commands::CheckEvidenceParity => check_evidence_parity()?,
         Commands::CheckEvidenceParityAcceptance { include_python } => {
             check_evidence_parity_acceptance(include_python)?;
@@ -10148,6 +10152,80 @@ fn check_swarm_routed_rust_text_invariants(
     errors
 }
 
+fn allowed_source_sync_boundary_paths() -> BTreeSet<&'static str> {
+    BTreeSet::from([
+        ".github/workflows/em-ci-routed-rust.yml",
+        ".hl7v2/goals/active.toml",
+        "docs/ci/ci-lane-whitelist.md",
+        "docs/ops/swarm-development.md",
+        "policy/ci-lane-whitelist.toml",
+        "policy/workflow-allowlist.toml",
+        "xtask/src/cli.rs",
+        "xtask/src/main.rs",
+    ])
+}
+
+fn source_sync_boundary_text_errors(
+    diff_name_status: &str,
+    allowed_paths: &BTreeSet<&'static str>,
+) -> Vec<String> {
+    let mut errors = Vec::new();
+    for line in diff_name_status
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+    {
+        let parts: Vec<&str> = line.split('\t').collect();
+        let Some(status) = parts.first() else {
+            continue;
+        };
+        if parts.len() < 2 {
+            errors.push(format!("cannot parse source-vs-swarm diff line `{line}`"));
+            continue;
+        }
+        let paths = parts.get(1..).unwrap_or_default();
+        for path in paths {
+            let normalized = path.replace('\\', "/");
+            if !allowed_paths.contains(normalized.as_str()) {
+                errors.push(format!(
+                    "unexpected source-vs-swarm delta `{status}` for `{normalized}`"
+                ));
+            }
+        }
+    }
+    errors
+}
+
+fn check_source_sync_boundary(source_ref: &str, swarm_ref: &str) -> Result<()> {
+    println!("🔎 Checking source/swarm sync boundary...");
+    let source_commit = format!("{source_ref}^{{commit}}");
+    let swarm_commit = format!("{swarm_ref}^{{commit}}");
+    git_output(&["rev-parse", "--verify", &source_commit]).map_err(|e| {
+        anyhow!(
+            "cannot resolve source ref `{source_ref}`; fetch or add the source remote first: {e}"
+        )
+    })?;
+    git_output(&["rev-parse", "--verify", &swarm_commit])
+        .map_err(|e| anyhow!("cannot resolve swarm ref `{swarm_ref}`: {e}"))?;
+
+    let diff = git_output(&["diff", "--name-status", source_ref, swarm_ref])?;
+    let allowed_paths = allowed_source_sync_boundary_paths();
+    let errors = source_sync_boundary_text_errors(&diff, &allowed_paths);
+    if !errors.is_empty() {
+        for error in &errors {
+            eprintln!("❌ {error}");
+        }
+        return Err(anyhow!(
+            "source/swarm sync boundary check failed: {} unexpected delta(s)",
+            errors.len()
+        ));
+    }
+    let delta_count = diff.lines().filter(|line| !line.trim().is_empty()).count();
+    println!(
+        "✅ source/swarm sync boundary: {delta_count} intentional delta(s) between {source_ref} and {swarm_ref}"
+    );
+    Ok(())
+}
+
 fn today_iso() -> String {
     if let Ok(d) = env::var("CI_TODAY") {
         return d;
@@ -10971,6 +11049,47 @@ jobs:
         } else {
             Err(anyhow!(
                 "swarm routed invariant should reject missing runner API fallback: {errors:?}"
+            ))
+        }
+    }
+
+    #[test]
+    fn source_sync_boundary_accepts_intentional_swarm_paths() -> Result<()> {
+        let diff = "\
+A\t.github/workflows/em-ci-routed-rust.yml
+M\t.hl7v2/goals/active.toml
+M\tdocs/ci/ci-lane-whitelist.md
+A\tdocs/ops/swarm-development.md
+M\tpolicy/ci-lane-whitelist.toml
+M\tpolicy/workflow-allowlist.toml
+M\txtask/src/cli.rs
+M\txtask/src/main.rs
+";
+        let errors = source_sync_boundary_text_errors(diff, &allowed_source_sync_boundary_paths());
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "intentional swarm source-sync delta should be accepted: {errors:?}"
+            ))
+        }
+    }
+
+    #[test]
+    fn source_sync_boundary_rejects_stranded_product_delta() -> Result<()> {
+        let diff = "\
+M\tcrates/hl7v2-server/src/middleware.rs
+M\tdocs/ops/swarm-development.md
+";
+        let errors = source_sync_boundary_text_errors(diff, &allowed_source_sync_boundary_paths());
+        if errors
+            .iter()
+            .any(|error| error.contains("crates/hl7v2-server/src/middleware.rs"))
+        {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "source-sync boundary should reject product deltas: {errors:?}"
             ))
         }
     }

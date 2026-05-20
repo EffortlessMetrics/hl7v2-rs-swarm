@@ -160,6 +160,7 @@ current_state = [
   "Source-only TestPyPI OIDC, release-readiness receipt, and cross-surface parity audit updates have been synced into hl7v2-rs-swarm.",
   "The Nightly mutation output-directory guard is synced from source into hl7v2-rs-swarm.",
   "The remaining source-vs-swarm tree delta is the intentional routed CI workflow, swarm ops marker, swarm policy allowlist entries, and this cutover work item.",
+  "The source-sync boundary has an xtask guard so product, policy, docs, proof, or security changes cannot remain stranded without appearing as unexpected deltas.",
   "New development should move to hl7v2-rs-swarm after routed CI and branch protection are fully proven.",
   "hl7v2-rs remains the source and release mirror until that role is deliberately changed.",
   "Runner group access and EM_RUNNER_READ_TOKEN scoping remain external admin setup before CX53/CX43 proof can complete.",
@@ -185,6 +186,7 @@ proof = [
   "That run passed Rust Small on GitHub Hosted and HL7v2 Rust Small Result while CX53 and CX43 skipped.",
   "The same commit passed CI, CI Policy, and Security.",
   "Live checks on 2026-05-20 still showed zero visible repository runners, no visible repository secrets, and no main branch protection.",
+  "Local source-sync boundary guard command: cargo +1.95.0 run -p xtask -- check-source-sync-boundary --source-ref source/main --swarm-ref HEAD",
 ]
 planned_route = [
   "HL7v2 Rust Small = CX53 -> CX43 -> GitHub-hosted.",
