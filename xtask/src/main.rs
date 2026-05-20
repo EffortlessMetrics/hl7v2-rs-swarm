@@ -85,8 +85,9 @@ fn main() -> Result<()> {
         } => check_swarm_branch_protection(&repo, &branch, allow_unprotected)?,
         Commands::CheckSwarmRunnerSetup {
             repo,
+            runner_read_token_secret,
             allow_unavailable,
-        } => check_swarm_runner_setup(&repo, allow_unavailable)?,
+        } => check_swarm_runner_setup(&repo, &runner_read_token_secret, allow_unavailable)?,
         Commands::CheckEvidenceParity => check_evidence_parity()?,
         Commands::CheckEvidenceParityAcceptance { include_python } => {
             check_evidence_parity_acceptance(include_python)?;
@@ -10398,51 +10399,96 @@ fn swarm_branch_protection_errors(value: &serde_json::Value) -> Vec<String> {
 const SWARM_CX53_LABELS: &[&str] = &["em-ci", "cx53", "rust-small", "trusted-pr"];
 const SWARM_CX43_LABELS: &[&str] = &["em-ci", "cx43", "rust-small", "trusted-pr"];
 
-fn check_swarm_runner_setup(repo: &str, allow_unavailable: bool) -> Result<()> {
+fn check_swarm_runner_setup(
+    repo: &str,
+    runner_read_token_secret: &str,
+    allow_unavailable: bool,
+) -> Result<()> {
     println!("🔎 Checking swarm runner setup for {repo}...");
+    let mut errors = Vec::new();
+    errors.extend(check_swarm_runner_secret_errors(
+        repo,
+        runner_read_token_secret,
+    )?);
+
     let api_path = format!("repos/{repo}/actions/runners?per_page=100");
     let args = vec!["api".to_string(), api_path];
     let (code, stdout, stderr) = run_command_capture_status("gh", &args)?;
-
     if code != Some(0) {
-        if allow_unavailable {
-            println!(
-                "⚠️ swarm runner API is unavailable; allowed by --allow-unavailable\nstdout:\n{stdout}\nstderr:\n{stderr}"
-            );
-            return Ok(());
-        }
-
-        return Err(anyhow!(
+        errors.push(format!(
             "cannot read repository runners for {repo}; gh exited with {code:?}\nstdout:\n{stdout}\nstderr:\n{stderr}"
         ));
+        finish_swarm_runner_setup_check(errors, allow_unavailable)?;
+        return Ok(());
     }
-
     let value: serde_json::Value = serde_json::from_str(&stdout)
         .map_err(|e| anyhow!("cannot parse runner JSON for {repo}: {e}"))?;
-    let errors = swarm_runner_setup_errors(&value);
-    if !errors.is_empty() {
-        if allow_unavailable {
-            for error in &errors {
-                eprintln!("⚠️ {error}");
-            }
-            println!("⚠️ swarm runner setup is not complete yet; allowed by --allow-unavailable");
-            return Ok(());
-        }
-
-        for error in &errors {
-            eprintln!("❌ {error}");
-        }
-        return Err(anyhow!(
-            "swarm runner setup must expose online CX53 and CX43 rust-small runners"
-        ));
+    errors.extend(swarm_runner_setup_errors(&value));
+    if !finish_swarm_runner_setup_check(errors, allow_unavailable)? {
+        return Ok(());
     }
 
     let total = value
         .get("total_count")
         .and_then(serde_json::Value::as_u64)
         .unwrap_or_default();
-    println!("✅ swarm runner setup exposes CX53 and CX43 routes across {total} runner(s)");
+    println!(
+        "✅ swarm runner setup exposes {runner_read_token_secret} plus CX53/CX43 routes across {total} runner(s)"
+    );
     Ok(())
+}
+
+fn finish_swarm_runner_setup_check(errors: Vec<String>, allow_unavailable: bool) -> Result<bool> {
+    if !errors.is_empty() {
+        if allow_unavailable {
+            for error in &errors {
+                eprintln!("⚠️ {error}");
+            }
+            println!("⚠️ swarm runner setup is not complete yet; allowed by --allow-unavailable");
+            return Ok(false);
+        }
+
+        for error in &errors {
+            eprintln!("❌ {error}");
+        }
+        return Err(anyhow!(
+            "swarm runner setup must expose the runner-read token secret plus online CX53 and CX43 rust-small runners"
+        ));
+    }
+
+    Ok(true)
+}
+
+fn check_swarm_runner_secret_errors(repo: &str, secret_name: &str) -> Result<Vec<String>> {
+    let api_path = format!("repos/{repo}/actions/secrets/{secret_name}");
+    let args = vec!["api".to_string(), api_path];
+    let (code, stdout, stderr) = run_command_capture_status("gh", &args)?;
+    if code != Some(0) {
+        return Ok(vec![format!(
+            "repository secret {secret_name} is not visible for {repo}; gh exited with {code:?}\nstdout:\n{stdout}\nstderr:\n{stderr}"
+        )]);
+    }
+
+    let value: serde_json::Value = serde_json::from_str(&stdout)
+        .map_err(|e| anyhow!("cannot parse secret JSON for {repo}/{secret_name}: {e}"))?;
+    Ok(swarm_runner_secret_response_errors(&value, secret_name))
+}
+
+fn swarm_runner_secret_response_errors(
+    value: &serde_json::Value,
+    expected_secret_name: &str,
+) -> Vec<String> {
+    let actual_name = value
+        .get("name")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    if actual_name == expected_secret_name {
+        Vec::new()
+    } else {
+        vec![format!(
+            "repository secret lookup returned name `{actual_name}`, expected `{expected_secret_name}`"
+        )]
+    }
 }
 
 fn swarm_runner_setup_errors(value: &serde_json::Value) -> Vec<String> {
@@ -11657,6 +11703,86 @@ M\tdocs/ops/swarm-development.md
         } else {
             Err(anyhow!(
                 "offline CX53 runner should be rejected: {errors:?}"
+            ))
+        }
+    }
+
+    #[test]
+    fn check_swarm_runner_setup_defaults_to_em_runner_read_token() -> Result<()> {
+        let cli = Cli::try_parse_from(["xtask", "check-swarm-runner-setup"])?;
+        match cli.command {
+            Commands::CheckSwarmRunnerSetup {
+                runner_read_token_secret,
+                ..
+            } => {
+                if runner_read_token_secret == "EM_RUNNER_READ_TOKEN" {
+                    Ok(())
+                } else {
+                    Err(anyhow!(
+                        "check-swarm-runner-setup should default to EM_RUNNER_READ_TOKEN"
+                    ))
+                }
+            }
+            _ => Err(anyhow!("expected check-swarm-runner-setup command")),
+        }
+    }
+
+    #[test]
+    fn check_swarm_runner_setup_accepts_secret_override() -> Result<()> {
+        let cli = Cli::try_parse_from([
+            "xtask",
+            "check-swarm-runner-setup",
+            "--runner-read-token-secret",
+            "ALT_RUNNER_TOKEN",
+        ])?;
+        match cli.command {
+            Commands::CheckSwarmRunnerSetup {
+                runner_read_token_secret,
+                ..
+            } => {
+                if runner_read_token_secret == "ALT_RUNNER_TOKEN" {
+                    Ok(())
+                } else {
+                    Err(anyhow!(
+                        "check-swarm-runner-setup should preserve secret override"
+                    ))
+                }
+            }
+            _ => Err(anyhow!("expected check-swarm-runner-setup command")),
+        }
+    }
+
+    #[test]
+    fn swarm_runner_secret_response_accepts_expected_name() -> Result<()> {
+        let value: serde_json::Value = serde_json::json!({
+            "name": "EM_RUNNER_READ_TOKEN",
+            "created_at": "2026-05-20T00:00:00Z",
+            "updated_at": "2026-05-20T00:00:00Z"
+        });
+        let errors = swarm_runner_secret_response_errors(&value, "EM_RUNNER_READ_TOKEN");
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "expected EM_RUNNER_READ_TOKEN secret should be accepted: {errors:?}"
+            ))
+        }
+    }
+
+    #[test]
+    fn swarm_runner_secret_response_rejects_wrong_name() -> Result<()> {
+        let value: serde_json::Value = serde_json::json!({
+            "name": "OTHER_SECRET"
+        });
+        let errors = swarm_runner_secret_response_errors(&value, "EM_RUNNER_READ_TOKEN");
+        if errors
+            .iter()
+            .any(|error| error.contains("expected `EM_RUNNER_READ_TOKEN`"))
+        {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "wrong runner secret name should be rejected: {errors:?}"
             ))
         }
     }

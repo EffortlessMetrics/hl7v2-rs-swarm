@@ -26,11 +26,11 @@
   `cargo run -p xtask -- check-swarm-branch-protection`. Before it is enabled,
   `cargo run -p xtask -- check-swarm-branch-protection --allow-unprotected`
   records the expected blocked state without claiming completion.
-- After runner-group and token setup, verify repository-visible CX53/CX43
-  runner setup with `cargo run -p xtask -- check-swarm-runner-setup`. Before
-  setup is complete, `cargo run -p xtask -- check-swarm-runner-setup
-  --allow-unavailable` records the expected blocked state without claiming
-  CX53/CX43 proof.
+- After runner-group and token setup, verify both `EM_RUNNER_READ_TOKEN` and
+  repository-visible CX53/CX43 runner setup with
+  `cargo run -p xtask -- check-swarm-runner-setup`. Before setup is complete,
+  `cargo run -p xtask -- check-swarm-runner-setup --allow-unavailable` records
+  the expected blocked state without claiming CX53/CX43 proof.
 
 ## Initial Routed CI Target
 
@@ -241,7 +241,7 @@ following admin steps are required before self-hosted proof can complete:
 
 - Add `hl7v2-rs-swarm` to the `em-ci-small` runner group selected repositories.
 - Scope `EM_RUNNER_READ_TOKEN` to `hl7v2-rs-swarm`.
-- Verify runner visibility with:
+- Verify `EM_RUNNER_READ_TOKEN` and runner visibility with:
 
   ```bash
   cargo +1.95.0 run -p xtask -- check-swarm-runner-setup
