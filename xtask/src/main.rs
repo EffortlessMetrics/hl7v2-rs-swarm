@@ -9930,6 +9930,199 @@ fn workflow_permission_errors(root: &Path) -> Result<Vec<String>> {
     Ok(errors)
 }
 
+fn require_workflow_snippet(
+    workflow_text: &str,
+    errors: &mut Vec<String>,
+    workflow: &str,
+    description: &str,
+    snippet: &str,
+) {
+    if !workflow_text.contains(snippet) {
+        errors.push(format!(
+            "{workflow} is missing routed Rust invariant `{description}`; expected snippet `{snippet}`"
+        ));
+    }
+}
+
+fn check_swarm_routed_rust_invariants(root: &Path, lanes: &[CiLaneEntry]) -> Result<Vec<String>> {
+    let workflow = ".github/workflows/em-ci-routed-rust.yml";
+    let workflow_path = root.join(workflow);
+    if !workflow_path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let workflow_text = fs::read_to_string(&workflow_path).map_err(|e| {
+        anyhow!(
+            "cannot read swarm routed workflow {}: {e}",
+            workflow_path.display()
+        )
+    })?;
+    Ok(check_swarm_routed_rust_text_invariants(
+        workflow,
+        &workflow_text,
+        lanes,
+    ))
+}
+
+fn check_swarm_routed_rust_text_invariants(
+    workflow: &str,
+    workflow_text: &str,
+    lanes: &[CiLaneEntry],
+) -> Vec<String> {
+    let mut errors = Vec::new();
+    let lane_by_id: HashMap<&str, &CiLaneEntry> =
+        lanes.iter().map(|lane| (lane.id.as_str(), lane)).collect();
+
+    for (lane_id, job, blocking) in [
+        ("swarm_rust_small_router", "route-rust-small", false),
+        ("swarm_rust_small_cx53", "rust-small-cx53", false),
+        ("swarm_rust_small_cx43", "rust-small-cx43", false),
+        ("swarm_rust_small_github", "rust-small-github", false),
+        ("swarm_rust_small_docs_gate", "docs-gate", false),
+        ("swarm_rust_small_result", "hl7v2-rust-small-result", true),
+    ] {
+        match lane_by_id.get(lane_id) {
+            Some(lane) => {
+                if lane.workflow != workflow {
+                    errors.push(format!(
+                        "lane '{lane_id}' must point at {workflow}, found '{}'",
+                        lane.workflow
+                    ));
+                }
+                if lane.job != job {
+                    errors.push(format!(
+                        "lane '{lane_id}' must point at routed job '{job}', found '{}'",
+                        lane.job
+                    ));
+                }
+                if lane.blocking != blocking {
+                    errors.push(format!(
+                        "lane '{lane_id}' blocking must be {blocking} so only the normalized result is required"
+                    ));
+                }
+            }
+            None => errors.push(format!(
+                "swarm routed workflow exists but ci-lane-whitelist is missing lane '{lane_id}'"
+            )),
+        }
+    }
+
+    for (description, snippet) in [
+        ("workflow name", "name: HL7v2 Rust Small"),
+        (
+            "normalized result job name",
+            "name: HL7v2 Rust Small Result",
+        ),
+        (
+            "router target output",
+            "router_target: ${{ steps.route.outputs.router_target }}",
+        ),
+        (
+            "router reason output",
+            "router_reason: ${{ steps.route.outputs.router_reason }}",
+        ),
+        (
+            "router repo output",
+            "repo: ${{ steps.route.outputs.repo }}",
+        ),
+        (
+            "router workflow output",
+            "workflow: ${{ steps.route.outputs.workflow }}",
+        ),
+        (
+            "router run id output",
+            "run_id: ${{ steps.route.outputs.run_id }}",
+        ),
+        ("fork PR hosted fallback", "choose \"github\" \"fork_pr\""),
+        (
+            "missing token hosted fallback",
+            "choose \"github\" \"runner_token_missing\"",
+        ),
+        (
+            "runner API hosted fallback",
+            "choose \"github\" \"runner_api_failed\"",
+        ),
+        (
+            "no idle runner hosted fallback",
+            "choose \"github\" \"no_idle_runner\"",
+        ),
+        ("CX53 idle route", "choose \"cx53\" \"cx53_idle\""),
+        ("CX43 idle route", "choose \"cx43\" \"cx43_idle\""),
+        (
+            "CX53 selector labels",
+            "[\"em-ci\", \"cx53\", \"rust-small\", \"trusted-pr\"] - $labels",
+        ),
+        (
+            "CX43 selector labels",
+            "[\"em-ci\", \"cx43\", \"rust-small\", \"trusted-pr\"] - $labels",
+        ),
+        (
+            "CX53 runner labels",
+            "runs-on: [self-hosted, Linux, X64, em-ci, cx53, rust-small, trusted-pr]",
+        ),
+        (
+            "CX43 runner labels",
+            "runs-on: [self-hosted, Linux, X64, em-ci, cx43, rust-small, trusted-pr]",
+        ),
+        ("hosted fallback runner", "runs-on: ubuntu-latest"),
+        ("CX53 container image", "image: em-ci-rust:1.95"),
+        ("CX53 container cap", "options: --cpus=14 --memory=28g"),
+        ("CX43 container cap", "options: --cpus=8 --memory=16g"),
+        ("CX53 build jobs", "CARGO_BUILD_JOBS: \"12\""),
+        ("CX43 build jobs", "CARGO_BUILD_JOBS: \"8\""),
+        (
+            "self-hosted disk guard",
+            "ci-disk-guard /mnt/ci-scratch 100",
+        ),
+        ("self-hosted target cleanup", "rm -rf \"$CARGO_TARGET_DIR\""),
+        ("result needs CX53", "- rust-small-cx53"),
+        ("result needs CX43", "- rust-small-cx43"),
+        ("result needs hosted fallback", "- rust-small-github"),
+        ("result needs docs gate", "- docs-gate"),
+        (
+            "result CX53 env",
+            "CX53: ${{ needs.rust-small-cx53.result }}",
+        ),
+        (
+            "result CX43 env",
+            "CX43: ${{ needs.rust-small-cx43.result }}",
+        ),
+        (
+            "result hosted env",
+            "GITHUB_HOSTED: ${{ needs.rust-small-github.result }}",
+        ),
+        ("result docs env", "DOCS: ${{ needs.docs-gate.result }}"),
+        (
+            "result router target env",
+            "ROUTER_TARGET: ${{ needs.route-rust-small.outputs.router_target }}",
+        ),
+        (
+            "result router reason env",
+            "ROUTER_REASON: ${{ needs.route-rust-small.outputs.router_reason }}",
+        ),
+        (
+            "docs-only result",
+            "if [ \"$DOCS\" = \"success\" ] && [ \"$ROUTE\" = \"skipped\" ]; then",
+        ),
+        (
+            "CX53 one-route result",
+            "if [ \"$CX53\" = \"success\" ] && [ \"$CX43\" = \"skipped\" ] && [ \"$GITHUB_HOSTED\" = \"skipped\" ]; then",
+        ),
+        (
+            "CX43 one-route result",
+            "if [ \"$CX43\" = \"success\" ] && [ \"$CX53\" = \"skipped\" ] && [ \"$GITHUB_HOSTED\" = \"skipped\" ]; then",
+        ),
+        (
+            "hosted one-route result",
+            "if [ \"$GITHUB_HOSTED\" = \"success\" ] && [ \"$CX53\" = \"skipped\" ] && [ \"$CX43\" = \"skipped\" ]; then",
+        ),
+    ] {
+        require_workflow_snippet(workflow_text, &mut errors, workflow, description, snippet);
+    }
+
+    errors
+}
+
 fn today_iso() -> String {
     if let Ok(d) = env::var("CI_TODAY") {
         return d;
@@ -9976,6 +10169,7 @@ fn check_ci_lane_whitelist() -> Result<()> {
     let mut warnings: Vec<String> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
     errors.extend(workflow_permission_errors(&root)?);
+    errors.extend(check_swarm_routed_rust_invariants(&root, &lanes)?);
 
     for lane in &lanes {
         if !lane_ids.insert(lane.id.clone()) {
@@ -10660,6 +10854,54 @@ mod tests {
 
         let nested = "name: CI\non: push\njobs:\n  test:\n    permissions:\n      contents: read\n";
         assert!(!workflow_declares_top_level_permissions(nested));
+    }
+
+    #[test]
+    fn swarm_routed_rust_invariants_accept_checked_in_workflow() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let workflow = ".github/workflows/em-ci-routed-rust.yml";
+        let workflow_text = fs::read_to_string(root.join(workflow))?;
+        let whitelist_text = fs::read_to_string(root.join("policy/ci-lane-whitelist.toml"))?;
+        let lanes = parse_ci_lane_whitelist(&whitelist_text)?;
+
+        let errors = check_swarm_routed_rust_text_invariants(workflow, &workflow_text, &lanes);
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "unexpected swarm routed invariant errors: {errors:?}"
+            ))
+        }
+    }
+
+    #[test]
+    fn swarm_routed_rust_invariants_require_runner_api_fallback() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let workflow = ".github/workflows/em-ci-routed-rust.yml";
+        let workflow_text = fs::read_to_string(root.join(workflow))?.replace(
+            "choose \"github\" \"runner_api_failed\"",
+            "choose \"github\" \"runner_api_error\"",
+        );
+        let whitelist_text = fs::read_to_string(root.join("policy/ci-lane-whitelist.toml"))?;
+        let lanes = parse_ci_lane_whitelist(&whitelist_text)?;
+
+        let errors = check_swarm_routed_rust_text_invariants(workflow, &workflow_text, &lanes);
+        if errors
+            .iter()
+            .any(|error| error.contains("runner API hosted fallback"))
+        {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "swarm routed invariant should reject missing runner API fallback: {errors:?}"
+            ))
+        }
     }
 
     #[test]
