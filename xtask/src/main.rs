@@ -83,6 +83,10 @@ fn main() -> Result<()> {
             branch,
             allow_unprotected,
         } => check_swarm_branch_protection(&repo, &branch, allow_unprotected)?,
+        Commands::CheckSwarmRunnerSetup {
+            repo,
+            allow_unavailable,
+        } => check_swarm_runner_setup(&repo, allow_unavailable)?,
         Commands::CheckEvidenceParity => check_evidence_parity()?,
         Commands::CheckEvidenceParityAcceptance { include_python } => {
             check_evidence_parity_acceptance(include_python)?;
@@ -10391,6 +10395,100 @@ fn swarm_branch_protection_errors(value: &serde_json::Value) -> Vec<String> {
     }
 }
 
+const SWARM_CX53_LABELS: &[&str] = &["em-ci", "cx53", "rust-small", "trusted-pr"];
+const SWARM_CX43_LABELS: &[&str] = &["em-ci", "cx43", "rust-small", "trusted-pr"];
+
+fn check_swarm_runner_setup(repo: &str, allow_unavailable: bool) -> Result<()> {
+    println!("🔎 Checking swarm runner setup for {repo}...");
+    let api_path = format!("repos/{repo}/actions/runners?per_page=100");
+    let args = vec!["api".to_string(), api_path];
+    let (code, stdout, stderr) = run_command_capture_status("gh", &args)?;
+
+    if code != Some(0) {
+        if allow_unavailable {
+            println!(
+                "⚠️ swarm runner API is unavailable; allowed by --allow-unavailable\nstdout:\n{stdout}\nstderr:\n{stderr}"
+            );
+            return Ok(());
+        }
+
+        return Err(anyhow!(
+            "cannot read repository runners for {repo}; gh exited with {code:?}\nstdout:\n{stdout}\nstderr:\n{stderr}"
+        ));
+    }
+
+    let value: serde_json::Value = serde_json::from_str(&stdout)
+        .map_err(|e| anyhow!("cannot parse runner JSON for {repo}: {e}"))?;
+    let errors = swarm_runner_setup_errors(&value);
+    if !errors.is_empty() {
+        if allow_unavailable {
+            for error in &errors {
+                eprintln!("⚠️ {error}");
+            }
+            println!("⚠️ swarm runner setup is not complete yet; allowed by --allow-unavailable");
+            return Ok(());
+        }
+
+        for error in &errors {
+            eprintln!("❌ {error}");
+        }
+        return Err(anyhow!(
+            "swarm runner setup must expose online CX53 and CX43 rust-small runners"
+        ));
+    }
+
+    let total = value
+        .get("total_count")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or_default();
+    println!("✅ swarm runner setup exposes CX53 and CX43 routes across {total} runner(s)");
+    Ok(())
+}
+
+fn swarm_runner_setup_errors(value: &serde_json::Value) -> Vec<String> {
+    let Some(runners) = value.get("runners").and_then(serde_json::Value::as_array) else {
+        return vec!["runner API response has no runners array".to_string()];
+    };
+
+    let mut errors = Vec::new();
+    if runners.is_empty() {
+        errors.push("runner API returned zero visible repository runners".to_string());
+    }
+
+    for (route, labels) in [("CX53", SWARM_CX53_LABELS), ("CX43", SWARM_CX43_LABELS)] {
+        if !runners
+            .iter()
+            .any(|runner| runner_is_online_with_labels(runner, labels))
+        {
+            errors.push(format!(
+                "no online {route} runner has labels [{}]",
+                labels.join(", ")
+            ));
+        }
+    }
+
+    errors
+}
+
+fn runner_is_online_with_labels(runner: &serde_json::Value, required: &[&str]) -> bool {
+    let is_online = runner
+        .get("status")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|status| status == "online");
+    if !is_online {
+        return false;
+    }
+
+    let label_names: BTreeSet<&str> = runner
+        .get("labels")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|label| label.get("name").and_then(serde_json::Value::as_str))
+        .collect();
+    required.iter().all(|label| label_names.contains(label))
+}
+
 fn check_source_sync_boundary(source_ref: &str, swarm_ref: &str) -> Result<()> {
     println!("🔎 Checking source/swarm sync boundary...");
     let source_commit = format!("{source_ref}^{{commit}}");
@@ -11444,6 +11542,121 @@ M\tdocs/ops/swarm-development.md
         } else {
             Err(anyhow!(
                 "missing required status checks should be rejected: {errors:?}"
+            ))
+        }
+    }
+
+    #[test]
+    fn swarm_runner_setup_accepts_online_cx53_and_cx43() -> Result<()> {
+        let value: serde_json::Value = serde_json::json!({
+            "total_count": 2,
+            "runners": [
+                {
+                    "name": "em-ci-hel2-cx53-rust-01",
+                    "status": "online",
+                    "busy": false,
+                    "labels": [
+                        {"name": "em-ci"},
+                        {"name": "cx53"},
+                        {"name": "rust-small"},
+                        {"name": "trusted-pr"}
+                    ]
+                },
+                {
+                    "name": "em-ci-hel2-cx43-rust-01",
+                    "status": "online",
+                    "busy": true,
+                    "labels": [
+                        {"name": "em-ci"},
+                        {"name": "cx43"},
+                        {"name": "rust-small"},
+                        {"name": "trusted-pr"}
+                    ]
+                }
+            ]
+        });
+
+        let errors = swarm_runner_setup_errors(&value);
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "online CX53/CX43 runners should be accepted: {errors:?}"
+            ))
+        }
+    }
+
+    #[test]
+    fn swarm_runner_setup_rejects_missing_cx43() -> Result<()> {
+        let value: serde_json::Value = serde_json::json!({
+            "total_count": 1,
+            "runners": [
+                {
+                    "name": "em-ci-hel2-cx53-rust-01",
+                    "status": "online",
+                    "busy": false,
+                    "labels": [
+                        {"name": "em-ci"},
+                        {"name": "cx53"},
+                        {"name": "rust-small"},
+                        {"name": "trusted-pr"}
+                    ]
+                }
+            ]
+        });
+
+        let errors = swarm_runner_setup_errors(&value);
+        if errors
+            .iter()
+            .any(|error| error.contains("no online CX43 runner"))
+        {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "missing CX43 runner should be rejected: {errors:?}"
+            ))
+        }
+    }
+
+    #[test]
+    fn swarm_runner_setup_rejects_offline_runner() -> Result<()> {
+        let value: serde_json::Value = serde_json::json!({
+            "total_count": 2,
+            "runners": [
+                {
+                    "name": "em-ci-hel2-cx53-rust-01",
+                    "status": "offline",
+                    "busy": false,
+                    "labels": [
+                        {"name": "em-ci"},
+                        {"name": "cx53"},
+                        {"name": "rust-small"},
+                        {"name": "trusted-pr"}
+                    ]
+                },
+                {
+                    "name": "em-ci-hel2-cx43-rust-01",
+                    "status": "online",
+                    "busy": false,
+                    "labels": [
+                        {"name": "em-ci"},
+                        {"name": "cx43"},
+                        {"name": "rust-small"},
+                        {"name": "trusted-pr"}
+                    ]
+                }
+            ]
+        });
+
+        let errors = swarm_runner_setup_errors(&value);
+        if errors
+            .iter()
+            .any(|error| error.contains("no online CX53 runner"))
+        {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "offline CX53 runner should be rejected: {errors:?}"
             ))
         }
     }

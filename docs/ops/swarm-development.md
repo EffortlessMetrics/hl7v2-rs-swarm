@@ -26,6 +26,11 @@
   `cargo run -p xtask -- check-swarm-branch-protection`. Before it is enabled,
   `cargo run -p xtask -- check-swarm-branch-protection --allow-unprotected`
   records the expected blocked state without claiming completion.
+- After runner-group and token setup, verify repository-visible CX53/CX43
+  runner setup with `cargo run -p xtask -- check-swarm-runner-setup`. Before
+  setup is complete, `cargo run -p xtask -- check-swarm-runner-setup
+  --allow-unavailable` records the expected blocked state without claiming
+  CX53/CX43 proof.
 
 ## Initial Routed CI Target
 
@@ -151,6 +156,18 @@ The latest post-merge routed proofs after the Node 24 opt-in are:
 - A local pre-protection verifier refresh passed and confirmed branch
   protection is still intentionally deferred:
   `cargo +1.95.0 run -p xtask -- check-swarm-branch-protection --allow-unprotected`.
+- Source RIPR calibration sync proof: PR #32, `sync: merge source ripr
+  calibration`, merged on 2026-05-20 at
+  `61d85c756311cc8614f893db04550ab0f363a128`.
+- Post-merge `HL7v2 Rust Small` run
+  `https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26171472072`
+  passed on `main` via GitHub-hosted fallback.
+- That route selected `router_target=github` with
+  `router_reason=runner_api_failed`; the route annotation recorded
+  `runner API returned HTTP 403; using GitHub-hosted fallback`.
+- `Rust Small on GitHub Hosted` and `HL7v2 Rust Small Result` passed while
+  `Rust Small on CX53` and `Rust Small on CX43` were skipped.
+- On the same commit, `CI`, `CI Policy`, and `Security` also passed.
 
 This proves the routed gate still works under the workflow-scoped Node 24
 JavaScript action runtime opt-in. It still does not prove CX53 or CX43
@@ -224,6 +241,18 @@ following admin steps are required before self-hosted proof can complete:
 
 - Add `hl7v2-rs-swarm` to the `em-ci-small` runner group selected repositories.
 - Scope `EM_RUNNER_READ_TOKEN` to `hl7v2-rs-swarm`.
+- Verify runner visibility with:
+
+  ```bash
+  cargo +1.95.0 run -p xtask -- check-swarm-runner-setup
+  ```
+
+  Until setup is complete, use the same checker only as a blocked-state
+  receipt:
+
+  ```bash
+  cargo +1.95.0 run -p xtask -- check-swarm-runner-setup --allow-unavailable
+  ```
 
 Live checks on 2026-05-20 still showed zero visible repository runners, no
 visible repository secrets, and no `main` branch protection. The token used for
