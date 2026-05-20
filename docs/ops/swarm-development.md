@@ -104,6 +104,11 @@ The latest post-merge routed proofs after the Node 24 opt-in are:
   passed on `main` at `1e2e9daf85993a1c98c84a2aab4accfca72b0d9c`.
 - For both newer proofs, `CI`, `CI Policy`, and `Security` also passed on
   the same `main` commit.
+- Nightly mutation output-directory guard sync proof: `HL7v2 Rust Small` run
+  `https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26141263822`
+  passed on `main` at `3e148421e4050041f15283238b98a477a66be9e9`.
+- On the same commit, `CI`, `CI Policy`, `API Contracts`, `Coverage`, and
+  `Security` also passed.
 
 This proves the routed gate still works under the workflow-scoped Node 24
 JavaScript action runtime opt-in. It still does not prove CX53 or CX43
@@ -111,9 +116,10 @@ execution.
 
 ## Source Sync Boundary
 
-As of 2026-05-20, source-only TestPyPI OIDC and release-readiness receipt
-updates have been synced into `hl7v2-rs-swarm`. The remaining source-vs-swarm
-tree delta is intentional swarm infrastructure:
+As of 2026-05-20, source-only TestPyPI OIDC, release-readiness receipt, and
+Nightly mutation output-directory guard updates have been synced into
+`hl7v2-rs-swarm`. The remaining source-vs-swarm tree delta is intentional swarm
+infrastructure:
 
 - `.github/workflows/em-ci-routed-rust.yml`
 - `docs/ops/swarm-development.md`
@@ -142,9 +148,11 @@ following admin steps are required before self-hosted proof can complete:
 - Scope `EM_RUNNER_READ_TOKEN` to `hl7v2-rs-swarm`.
 
 Live checks on 2026-05-20 still showed zero visible repository runners, no
-visible repository secrets, and no `main` branch protection. Branch protection
-should remain deferred until CX53, CX43 fallback, and hosted fallback are all
-proven.
+visible repository secrets, and no `main` branch protection. The token used for
+repo work could read repository secrets but could not list organization runner
+groups; GitHub returned `403` with the `admin:org` scope requirement for the
+runner-group API. Branch protection should remain deferred until CX53, CX43
+fallback, and hosted fallback are all proven.
 
 Until those are complete, routed workflow proof can exercise hosted fallback
 behavior only. Do not claim CX53 or CX43 execution without run receipts.

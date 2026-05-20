@@ -157,10 +157,12 @@ current_state = [
   "The routed Rust Small workflow reports missing runner-read secret setup separately from runner API failures.",
   "The routed Rust Small workflow opts into the GitHub Actions Node 24 JavaScript action runtime during burn-in.",
   "Source-only TestPyPI OIDC and release-readiness receipt updates have been synced into hl7v2-rs-swarm.",
+  "The Nightly mutation output-directory guard is synced from source into hl7v2-rs-swarm.",
   "The remaining source-vs-swarm tree delta is the intentional routed CI workflow, swarm ops marker, swarm policy allowlist entries, and this cutover work item.",
   "New development should move to hl7v2-rs-swarm after routed CI and branch protection are fully proven.",
   "hl7v2-rs remains the source and release mirror until that role is deliberately changed.",
   "Runner group access and EM_RUNNER_READ_TOKEN scoping remain external admin setup before CX53/CX43 proof can complete.",
+  "The current GitHub token can read repository secrets but cannot list organization runner groups; the runner-group API returned 403 requiring admin:org scope.",
 ]
 proof = [
   "Push proof passed: https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26125581115",
@@ -175,6 +177,8 @@ proof = [
   "Source readiness receipt sync push proof passed: https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26134936717",
   "Both newer push proofs passed Rust Small on GitHub Hosted and HL7v2 Rust Small Result while CX53 and CX43 jobs skipped.",
   "Both newer push proofs also passed CI, CI Policy, and Security on their main commits.",
+  "Nightly mutation output-directory guard sync push proof passed: https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26141263822 on main commit 3e148421e4050041f15283238b98a477a66be9e9.",
+  "The same commit passed CI, CI Policy, API Contracts, Coverage, and Security.",
   "Live checks on 2026-05-20 still showed zero visible repository runners, no visible repository secrets, and no main branch protection.",
 ]
 planned_route = [
