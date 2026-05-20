@@ -54,6 +54,8 @@ The checker verifies:
   and result-job route aggregation.
 - The Nightly mutation lane creates its `target/nightly-mutation` output
   directory before invoking `cargo mutants`.
+- The `CI Policy` workflow keeps the non-PR source/swarm sync boundary fetch
+  and check steps wired.
 - `default_pr = true` + `expensive = true` requires a valid exception.
 - No expired exceptions remain.
 - Required fields are present.

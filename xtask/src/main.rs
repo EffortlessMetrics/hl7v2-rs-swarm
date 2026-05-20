@@ -10152,6 +10152,69 @@ fn check_swarm_routed_rust_text_invariants(
     errors
 }
 
+fn check_ci_policy_source_sync_invariants(root: &Path) -> Result<Vec<String>> {
+    let workflow = ".github/workflows/ci-policy.yml";
+    let workflow_path = root.join(workflow);
+    let workflow_text = fs::read_to_string(&workflow_path).map_err(|e| {
+        anyhow!(
+            "cannot read CI Policy workflow {}: {e}",
+            workflow_path.display()
+        )
+    })?;
+
+    Ok(check_ci_policy_source_sync_text_invariants(
+        workflow,
+        &workflow_text,
+    ))
+}
+
+fn check_ci_policy_source_sync_text_invariants(workflow: &str, workflow_text: &str) -> Vec<String> {
+    let mut errors = Vec::new();
+
+    for (description, snippet) in [
+        ("workflow name", "name: CI Policy"),
+        ("read-only contents permission", "contents: read"),
+        ("source fetch step", "name: Fetch source repository main"),
+        (
+            "source fetch non-PR guard",
+            "if: github.event_name != 'pull_request'",
+        ),
+        (
+            "source remote add",
+            "git remote add source https://github.com/EffortlessMetrics/hl7v2-rs.git",
+        ),
+        (
+            "source main shallow fetch",
+            "git fetch --no-tags --depth=1 source main",
+        ),
+        (
+            "source-sync check step",
+            "name: Check source/swarm sync boundary",
+        ),
+        (
+            "source-sync command",
+            "cargo run -p xtask -- check-source-sync-boundary --source-ref source/main --swarm-ref HEAD",
+        ),
+    ] {
+        if !workflow_text.contains(snippet) {
+            errors.push(format!(
+                "{workflow} is missing source-sync invariant `{description}`; expected snippet `{snippet}`"
+            ));
+        }
+    }
+
+    let non_pr_guard_count = workflow_text
+        .matches("if: github.event_name != 'pull_request'")
+        .count();
+    if non_pr_guard_count < 2 {
+        errors.push(format!(
+            "{workflow} must guard both source-sync steps with `if: github.event_name != 'pull_request'`; found {non_pr_guard_count}"
+        ));
+    }
+
+    errors
+}
+
 fn allowed_source_sync_boundary_paths() -> BTreeSet<&'static str> {
     BTreeSet::from([
         ".github/workflows/ci-policy.yml",
@@ -10275,6 +10338,7 @@ fn check_ci_lane_whitelist() -> Result<()> {
     errors.extend(workflow_permission_errors(&root)?);
     errors.extend(nightly_mutation_output_dir_errors(&root)?);
     errors.extend(check_swarm_routed_rust_invariants(&root, &lanes)?);
+    errors.extend(check_ci_policy_source_sync_invariants(&root)?);
 
     for lane in &lanes {
         if !lane_ids.insert(lane.id.clone()) {
@@ -11050,6 +11114,76 @@ jobs:
         } else {
             Err(anyhow!(
                 "swarm routed invariant should reject missing runner API fallback: {errors:?}"
+            ))
+        }
+    }
+
+    #[test]
+    fn ci_policy_source_sync_invariants_accept_checked_in_workflow() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let workflow = ".github/workflows/ci-policy.yml";
+        let workflow_text = fs::read_to_string(root.join(workflow))?;
+
+        let errors = check_ci_policy_source_sync_text_invariants(workflow, &workflow_text);
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "unexpected CI Policy source-sync invariant errors: {errors:?}"
+            ))
+        }
+    }
+
+    #[test]
+    fn ci_policy_source_sync_invariants_require_non_pr_guard() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let workflow = ".github/workflows/ci-policy.yml";
+        let workflow_text = fs::read_to_string(root.join(workflow))?
+            .replace("if: github.event_name != 'pull_request'", "if: always()");
+
+        let errors = check_ci_policy_source_sync_text_invariants(workflow, &workflow_text);
+        if errors
+            .iter()
+            .any(|error| error.contains("source fetch non-PR guard"))
+            && errors
+                .iter()
+                .any(|error| error.contains("must guard both source-sync steps"))
+        {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "CI Policy source-sync invariant should reject missing non-PR guard: {errors:?}"
+            ))
+        }
+    }
+
+    #[test]
+    fn ci_policy_source_sync_invariants_require_source_sync_command() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let workflow = ".github/workflows/ci-policy.yml";
+        let workflow_text = fs::read_to_string(root.join(workflow))?.replace(
+            "cargo run -p xtask -- check-source-sync-boundary --source-ref source/main --swarm-ref HEAD",
+            "cargo run -p xtask -- check-ci-lane-whitelist",
+        );
+
+        let errors = check_ci_policy_source_sync_text_invariants(workflow, &workflow_text);
+        if errors
+            .iter()
+            .any(|error| error.contains("source-sync command"))
+        {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "CI Policy source-sync invariant should reject missing source-sync command: {errors:?}"
             ))
         }
     }
