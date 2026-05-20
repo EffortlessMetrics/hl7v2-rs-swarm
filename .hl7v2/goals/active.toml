@@ -162,6 +162,7 @@ current_state = [
   "The remaining source-vs-swarm tree delta is the intentional routed CI workflow, CI Policy source-sync step, swarm ops marker, swarm policy allowlist entries, xtask source-sync guard, and this cutover work item.",
   "The source-sync boundary has an xtask guard so product, policy, docs, proof, or security changes cannot remain stranded without appearing as unexpected deltas.",
   "CI Policy runs the source-sync boundary guard on non-PR events after fetching the source repository.",
+  "check-ci-lane-whitelist now guards the CI Policy source-sync fetch/check wiring so it cannot be removed silently.",
   "New development should move to hl7v2-rs-swarm after routed CI and branch protection are fully proven.",
   "hl7v2-rs remains the source and release mirror until that role is deliberately changed.",
   "Runner group access and EM_RUNNER_READ_TOKEN scoping remain external admin setup before CX53/CX43 proof can complete.",
@@ -186,6 +187,10 @@ proof = [
   "That route selected router_target=github and router_reason=runner_api_failed; the workflow annotation recorded runner API HTTP 403 and GitHub-hosted fallback.",
   "That run passed Rust Small on GitHub Hosted and HL7v2 Rust Small Result while CX53 and CX43 skipped.",
   "The same commit passed CI, CI Policy, and Security.",
+  "Source-sync wiring guard proof merged in PR #22 at 10a2fc1dfa44e79645606d6b6ddf70cbfd584775.",
+  "Post-merge CI Policy proof passed: https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26149295355 and ran Fetch source repository main plus Check source/swarm sync boundary.",
+  "Post-merge HL7v2 Rust Small proof passed: https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26149295445 via GitHub-hosted fallback; CX53 and CX43 skipped.",
+  "Post-merge main also passed CI, API Contracts, Coverage, and Security on 10a2fc1dfa44e79645606d6b6ddf70cbfd584775.",
   "Live checks on 2026-05-20 still showed zero visible repository runners, no visible repository secrets, and no main branch protection.",
   "Local source-sync boundary guard command: cargo +1.95.0 run -p xtask -- check-source-sync-boundary --source-ref source/main --swarm-ref HEAD",
 ]

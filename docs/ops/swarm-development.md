@@ -156,6 +156,23 @@ pull-request step because normal swarm development may create product deltas
 before the source mirror is updated. `check-ci-lane-whitelist` guards that
 workflow wiring so the source-sync step cannot be removed silently.
 
+Guard proof:
+
+- PR #22, `ci: guard source sync policy wiring`, merged on 2026-05-20 at
+  `10a2fc1dfa44e79645606d6b6ddf70cbfd584775`.
+- Post-merge `CI Policy` run
+  `https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26149295355`
+  passed on `main` and ran both `Fetch source repository main` and
+  `Check source/swarm sync boundary`.
+- Post-merge `HL7v2 Rust Small` run
+  `https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26149295445`
+  passed via GitHub-hosted fallback with the annotation
+  `runner API returned HTTP 403; using GitHub-hosted fallback`. `Rust Small on
+  CX53` and `Rust Small on CX43` were skipped.
+- A local boundary refresh after fetching `source/main` passed with nine
+  intentional swarm-only deltas:
+  `cargo +1.95.0 run -p xtask -- check-source-sync-boundary --source-ref source/main --swarm-ref HEAD`.
+
 ## Self-hosted Guardrails
 
 - Run self-hosted jobs only for same-repository trusted PRs.
