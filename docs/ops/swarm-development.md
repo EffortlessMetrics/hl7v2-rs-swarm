@@ -90,10 +90,19 @@ Later routed workflow runs distinguish missing token setup from API failures:
 
 - `router_reason=runner_token_missing` means `EM_RUNNER_READ_TOKEN` is not
   configured for this repository.
+- `router_reason=runner_token_unauthorized` means the token was present but the
+  GitHub runner API returned HTTP `401`.
+- `router_reason=runner_token_forbidden` means the token was present but the
+  GitHub runner API returned HTTP `403`; check token scopes, repository
+  selection, and runner-group visibility.
 - `router_reason=runner_api_failed` means the token was present but the GitHub
-  runner API did not return a usable `200` response.
+  runner API did not return a usable `200` response for a non-401/non-403
+  failure.
 - `router_reason=no_idle_runner` means the runner API was readable but no
   eligible CX53 or CX43 runner was online and idle.
+
+Historical runs before the router split HTTP `401`/`403` outcomes recorded
+those failures as `runner_api_failed`.
 
 The latest post-merge routed proofs after the Node 24 opt-in are:
 

@@ -10125,6 +10125,14 @@ fn check_swarm_routed_rust_text_invariants(
             "choose \"github\" \"runner_api_failed\"",
         ),
         (
+            "runner token unauthorized hosted fallback",
+            "choose \"github\" \"runner_token_unauthorized\"",
+        ),
+        (
+            "runner token forbidden hosted fallback",
+            "choose \"github\" \"runner_token_forbidden\"",
+        ),
+        (
             "no idle runner hosted fallback",
             "choose \"github\" \"no_idle_runner\"",
         ),

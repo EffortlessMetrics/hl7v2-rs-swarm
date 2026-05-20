@@ -99,7 +99,17 @@ jobs:
 
           if [ "$status" != "200" ]; then
             echo "::notice::runner API returned HTTP $status; using GitHub-hosted fallback"
-            choose "github" "runner_api_failed"
+            case "$status" in
+              401)
+                choose "github" "runner_token_unauthorized"
+                ;;
+              403)
+                choose "github" "runner_token_forbidden"
+                ;;
+              *)
+                choose "github" "runner_api_failed"
+                ;;
+            esac
             exit 0
           fi
 
