@@ -119,9 +119,15 @@ jobs:
               | (["em-ci", "cx53", "rust-small", "trusted-pr"] - $labels | length == 0))
             | .name] | first // ""' "$response")"
 
-          if [ -n "$cx53" ]; then
-            echo "Selected CX53 runner: $cx53"
-            choose "cx53" "cx53_idle"
+          cpx42="$(jq -r '[.runners[]
+            | select(.status == "online" and (.busy | not))
+            | select([.labels[].name] as $labels
+              | (["em-ci", "cpx42", "rust-medium", "rust-16gb", "trusted-pr"] - $labels | length == 0))
+            | .name] | first // ""' "$response")"
+
+          if [ -n "$cpx42" ]; then
+            echo "Selected CPX42 runner: $cpx42"
+            choose "cpx42" "cpx42_idle"
             exit 0
           fi
 
@@ -137,7 +143,63 @@ jobs:
             exit 0
           fi
 
+          if [ -n "$cx53" ]; then
+            echo "Selected CX53 runner: $cx53"
+            choose "cx53" "cx53_idle"
+            exit 0
+          fi
+
           choose "github" "no_idle_runner"
+
+  rust-small-cpx42:
+    name: Rust Small on CPX42
+    needs: route-rust-small
+    if: >-
+      always() &&
+      needs.route-rust-small.result == 'success' &&
+      needs.route-rust-small.outputs.router_target == 'cpx42'
+    runs-on:
+      group: em-ci-small
+      labels: [self-hosted, linux, x64, em-ci, cpx42, rust-16gb, rust-medium, trusted-pr]
+    timeout-minutes: 30
+    container:
+      image: em-ci-rust:1.95
+      options: --cpus=8 --memory=14g
+    env:
+      CARGO_BUILD_JOBS: "7"
+      CARGO_INCREMENTAL: "0"
+      CARGO_TARGET_DIR: /mnt/ci-scratch/hl7v2-rs-swarm/${{ github.run_id }}-${{ github.run_attempt }}
+      TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Preflight disk and toolchain
+        run: |
+          set -euo pipefail
+          ci-disk-guard /mnt/ci-scratch 45
+          ci-disk-guard /mnt/docker 15
+          ci-disk-guard /mnt/ci-cache 10
+          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR"
+          df -h /mnt/ci-scratch /mnt/docker /mnt/ci-cache || true
+          rustc --version
+          cargo --version
+          if command -v sccache >/dev/null 2>&1; then
+            sccache --show-stats || true
+          fi
+
+      - name: Run Rust small gate
+        run: cargo run -p xtask -- gate --check
+
+      - name: Cleanup and final stats
+        if: always()
+        run: |
+          set +e
+          if command -v sccache >/dev/null 2>&1; then
+            sccache --show-stats || true
+          fi
+          rm -rf "$TMPDIR"
+          rm -rf "$CARGO_TARGET_DIR"
+          df -h /mnt/ci-scratch /mnt/docker /mnt/ci-cache || true
 
   rust-small-cx53:
     name: Rust Small on CX53
@@ -281,6 +343,7 @@ jobs:
     needs:
       - plan
       - route-rust-small
+      - rust-small-cpx42
       - rust-small-cx53
       - rust-small-cx43
       - rust-small-github
@@ -293,6 +356,7 @@ jobs:
         env:
           PLAN: ${{ needs.plan.result }}
           ROUTE: ${{ needs.route-rust-small.result }}
+          CPX42: ${{ needs.rust-small-cpx42.result }}
           CX53: ${{ needs.rust-small-cx53.result }}
           CX43: ${{ needs.rust-small-cx43.result }}
           GITHUB_HOSTED: ${{ needs.rust-small-github.result }}
@@ -305,7 +369,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "plan=$PLAN route=$ROUTE cx53=$CX53 cx43=$CX43 github=$GITHUB_HOSTED docs=$DOCS"
+          echo "plan=$PLAN route=$ROUTE cpx42=$CPX42 cx53=$CX53 cx43=$CX43 github=$GITHUB_HOSTED docs=$DOCS"
           echo "router_target=${ROUTER_TARGET:-} router_reason=${ROUTER_REASON:-}"
 
           {
@@ -313,6 +377,7 @@ jobs:
             echo ""
             echo "- plan: \`$PLAN\`"
             echo "- route: \`$ROUTE\`"
+            echo "- cpx42: \`$CPX42\`"
             echo "- cx53: \`$CX53\`"
             echo "- cx43: \`$CX43\`"
             echo "- github_hosted: \`$GITHUB_HOSTED\`"
@@ -340,20 +405,26 @@ jobs:
           fi
 
           case "${ROUTER_TARGET:-}" in
+            cpx42)
+              if [ "$CPX42" = "success" ] && [ "$CX53" = "skipped" ] && [ "$CX43" = "skipped" ] && [ "$GITHUB_HOSTED" = "skipped" ]; then
+                echo "CPX42 route passed"
+                exit 0
+              fi
+              ;;
             cx53)
-              if [ "$CX53" = "success" ] && [ "$CX43" = "skipped" ] && [ "$GITHUB_HOSTED" = "skipped" ]; then
+              if [ "$CX53" = "success" ] && [ "$CPX42" = "skipped" ] && [ "$CX43" = "skipped" ] && [ "$GITHUB_HOSTED" = "skipped" ]; then
                 echo "CX53 route passed"
                 exit 0
               fi
               ;;
             cx43)
-              if [ "$CX43" = "success" ] && [ "$CX53" = "skipped" ] && [ "$GITHUB_HOSTED" = "skipped" ]; then
+              if [ "$CX43" = "success" ] && [ "$CPX42" = "skipped" ] && [ "$CX53" = "skipped" ] && [ "$GITHUB_HOSTED" = "skipped" ]; then
                 echo "CX43 route passed"
                 exit 0
               fi
               ;;
             github)
-              if [ "$GITHUB_HOSTED" = "success" ] && [ "$CX53" = "skipped" ] && [ "$CX43" = "skipped" ]; then
+              if [ "$GITHUB_HOSTED" = "success" ] && [ "$CPX42" = "skipped" ] && [ "$CX53" = "skipped" ] && [ "$CX43" = "skipped" ]; then
                 echo "GitHub-hosted route passed"
                 exit 0
               fi

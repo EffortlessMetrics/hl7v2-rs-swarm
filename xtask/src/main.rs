@@ -10148,6 +10148,7 @@ fn check_swarm_routed_rust_text_invariants(
 
     for (lane_id, job, blocking) in [
         ("swarm_rust_small_router", "route-rust-small", false),
+        ("swarm_rust_small_cpx42", "rust-small-cpx42", false),
         ("swarm_rust_small_cx53", "rust-small-cx53", false),
         ("swarm_rust_small_cx43", "rust-small-cx43", false),
         ("swarm_rust_small_github", "rust-small-github", false),
@@ -10227,8 +10228,13 @@ fn check_swarm_routed_rust_text_invariants(
             "no idle runner hosted fallback",
             "choose \"github\" \"no_idle_runner\"",
         ),
-        ("CX53 idle route", "choose \"cx53\" \"cx53_idle\""),
+        ("CPX42 idle route", "choose \"cpx42\" \"cpx42_idle\""),
         ("CX43 idle route", "choose \"cx43\" \"cx43_idle\""),
+        ("CX53 idle route", "choose \"cx53\" \"cx53_idle\""),
+        (
+            "CPX42 selector labels",
+            "[\"em-ci\", \"cpx42\", \"rust-medium\", \"rust-16gb\", \"trusted-pr\"] - $labels",
+        ),
         (
             "CX53 selector labels",
             "[\"em-ci\", \"cx53\", \"rust-small\", \"trusted-pr\"] - $labels",
@@ -10245,21 +10251,33 @@ fn check_swarm_routed_rust_text_invariants(
             "CX43 runner labels",
             "runs-on: [self-hosted, Linux, X64, em-ci, cx43, rust-small, trusted-pr]",
         ),
+        (
+            "CPX42 runner labels",
+            "labels: [self-hosted, linux, x64, em-ci, cpx42, rust-16gb, rust-medium, trusted-pr]",
+        ),
         ("hosted fallback runner", "runs-on: ubuntu-latest"),
         ("CX53 container image", "image: em-ci-rust:1.95"),
+        ("CPX42 container cap", "options: --cpus=8 --memory=14g"),
         ("CX53 container cap", "options: --cpus=14 --memory=28g"),
         ("CX43 container cap", "options: --cpus=8 --memory=16g"),
+        ("CPX42 build jobs", "CARGO_BUILD_JOBS: \"7\""),
         ("CX53 build jobs", "CARGO_BUILD_JOBS: \"12\""),
         ("CX43 build jobs", "CARGO_BUILD_JOBS: \"8\""),
+        ("CPX42 disk guard", "ci-disk-guard /mnt/ci-scratch 45"),
         (
             "self-hosted disk guard",
             "ci-disk-guard /mnt/ci-scratch 100",
         ),
         ("self-hosted target cleanup", "rm -rf \"$CARGO_TARGET_DIR\""),
+        ("result needs CPX42", "- rust-small-cpx42"),
         ("result needs CX53", "- rust-small-cx53"),
         ("result needs CX43", "- rust-small-cx43"),
         ("result needs hosted fallback", "- rust-small-github"),
         ("result needs docs gate", "- docs-gate"),
+        (
+            "result CPX42 env",
+            "CPX42: ${{ needs.rust-small-cpx42.result }}",
+        ),
         (
             "result CX53 env",
             "CX53: ${{ needs.rust-small-cx53.result }}",
@@ -10286,16 +10304,20 @@ fn check_swarm_routed_rust_text_invariants(
             "if [ \"$DOCS\" = \"success\" ] && [ \"$ROUTE\" = \"skipped\" ]; then",
         ),
         (
+            "CPX42 one-route result",
+            "if [ \"$CPX42\" = \"success\" ] && [ \"$CX53\" = \"skipped\" ] && [ \"$CX43\" = \"skipped\" ] && [ \"$GITHUB_HOSTED\" = \"skipped\" ]; then",
+        ),
+        (
             "CX53 one-route result",
-            "if [ \"$CX53\" = \"success\" ] && [ \"$CX43\" = \"skipped\" ] && [ \"$GITHUB_HOSTED\" = \"skipped\" ]; then",
+            "if [ \"$CX53\" = \"success\" ] && [ \"$CPX42\" = \"skipped\" ] && [ \"$CX43\" = \"skipped\" ] && [ \"$GITHUB_HOSTED\" = \"skipped\" ]; then",
         ),
         (
             "CX43 one-route result",
-            "if [ \"$CX43\" = \"success\" ] && [ \"$CX53\" = \"skipped\" ] && [ \"$GITHUB_HOSTED\" = \"skipped\" ]; then",
+            "if [ \"$CX43\" = \"success\" ] && [ \"$CPX42\" = \"skipped\" ] && [ \"$CX53\" = \"skipped\" ] && [ \"$GITHUB_HOSTED\" = \"skipped\" ]; then",
         ),
         (
             "hosted one-route result",
-            "if [ \"$GITHUB_HOSTED\" = \"success\" ] && [ \"$CX53\" = \"skipped\" ] && [ \"$CX43\" = \"skipped\" ]; then",
+            "if [ \"$GITHUB_HOSTED\" = \"success\" ] && [ \"$CPX42\" = \"skipped\" ] && [ \"$CX53\" = \"skipped\" ] && [ \"$CX43\" = \"skipped\" ]; then",
         ),
     ] {
         require_workflow_snippet(workflow_text, &mut errors, workflow, description, snippet);
@@ -10495,8 +10517,9 @@ fn swarm_branch_protection_errors(value: &serde_json::Value) -> Vec<String> {
     }
 }
 
-const SWARM_CX53_LABELS: &[&str] = &["em-ci", "cx53", "rust-small", "trusted-pr"];
+const SWARM_CPX42_LABELS: &[&str] = &["em-ci", "cpx42", "rust-medium", "rust-16gb", "trusted-pr"];
 const SWARM_CX43_LABELS: &[&str] = &["em-ci", "cx43", "rust-small", "trusted-pr"];
+const SWARM_CX53_LABELS: &[&str] = &["em-ci", "cx53", "rust-small", "trusted-pr"];
 
 fn check_swarm_runner_setup(
     repo: &str,
@@ -10532,7 +10555,7 @@ fn check_swarm_runner_setup(
         .and_then(serde_json::Value::as_u64)
         .unwrap_or_default();
     println!(
-        "✅ swarm runner setup exposes {runner_read_token_secret} plus CX53/CX43 routes across {total} runner(s)"
+        "✅ swarm runner setup exposes {runner_read_token_secret} plus CPX42/CX43/CX53 routes across {total} runner(s)"
     );
     Ok(())
 }
@@ -10551,7 +10574,7 @@ fn finish_swarm_runner_setup_check(errors: Vec<String>, allow_unavailable: bool)
             eprintln!("❌ {error}");
         }
         return Err(anyhow!(
-            "swarm runner setup must expose the runner-read token secret plus online CX53 and CX43 rust-small runners"
+            "swarm runner setup must expose the runner-read token secret plus online CPX42, CX43, and CX53 runners"
         ));
     }
 
@@ -10600,7 +10623,11 @@ fn swarm_runner_setup_errors(value: &serde_json::Value) -> Vec<String> {
         errors.push("runner API returned zero visible repository runners".to_string());
     }
 
-    for (route, labels) in [("CX53", SWARM_CX53_LABELS), ("CX43", SWARM_CX43_LABELS)] {
+    for (route, labels) in [
+        ("CPX42", SWARM_CPX42_LABELS),
+        ("CX43", SWARM_CX43_LABELS),
+        ("CX53", SWARM_CX53_LABELS),
+    ] {
         if !runners
             .iter()
             .any(|runner| runner_is_online_with_labels(runner, labels))
@@ -11692,10 +11719,22 @@ M\tdocs/ops/swarm-development.md
     }
 
     #[test]
-    fn swarm_runner_setup_accepts_online_cx53_and_cx43() -> Result<()> {
+    fn swarm_runner_setup_accepts_online_cpx42_cx43_and_cx53() -> Result<()> {
         let value: serde_json::Value = serde_json::json!({
-            "total_count": 2,
+            "total_count": 3,
             "runners": [
+                {
+                    "name": "em-ci-hel2-cpx42-rust-01",
+                    "status": "online",
+                    "busy": false,
+                    "labels": [
+                        {"name": "em-ci"},
+                        {"name": "cpx42"},
+                        {"name": "rust-medium"},
+                        {"name": "rust-16gb"},
+                        {"name": "trusted-pr"}
+                    ]
+                },
                 {
                     "name": "em-ci-hel2-cx53-rust-01",
                     "status": "online",
@@ -11726,7 +11765,50 @@ M\tdocs/ops/swarm-development.md
             Ok(())
         } else {
             Err(anyhow!(
-                "online CX53/CX43 runners should be accepted: {errors:?}"
+                "online CPX42/CX43/CX53 runners should be accepted: {errors:?}"
+            ))
+        }
+    }
+
+    #[test]
+    fn swarm_runner_setup_rejects_missing_cpx42() -> Result<()> {
+        let value: serde_json::Value = serde_json::json!({
+            "total_count": 2,
+            "runners": [
+                {
+                    "name": "em-ci-hel2-cx53-rust-01",
+                    "status": "online",
+                    "busy": false,
+                    "labels": [
+                        {"name": "em-ci"},
+                        {"name": "cx53"},
+                        {"name": "rust-small"},
+                        {"name": "trusted-pr"}
+                    ]
+                },
+                {
+                    "name": "em-ci-hel2-cx43-rust-01",
+                    "status": "online",
+                    "busy": false,
+                    "labels": [
+                        {"name": "em-ci"},
+                        {"name": "cx43"},
+                        {"name": "rust-small"},
+                        {"name": "trusted-pr"}
+                    ]
+                }
+            ]
+        });
+
+        let errors = swarm_runner_setup_errors(&value);
+        if errors
+            .iter()
+            .any(|error| error.contains("no online CPX42 runner"))
+        {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "missing CPX42 runner should be rejected: {errors:?}"
             ))
         }
     }
@@ -11734,8 +11816,20 @@ M\tdocs/ops/swarm-development.md
     #[test]
     fn swarm_runner_setup_rejects_missing_cx43() -> Result<()> {
         let value: serde_json::Value = serde_json::json!({
-            "total_count": 1,
+            "total_count": 2,
             "runners": [
+                {
+                    "name": "em-ci-hel2-cpx42-rust-01",
+                    "status": "online",
+                    "busy": false,
+                    "labels": [
+                        {"name": "em-ci"},
+                        {"name": "cpx42"},
+                        {"name": "rust-medium"},
+                        {"name": "rust-16gb"},
+                        {"name": "trusted-pr"}
+                    ]
+                },
                 {
                     "name": "em-ci-hel2-cx53-rust-01",
                     "status": "online",
@@ -11766,8 +11860,20 @@ M\tdocs/ops/swarm-development.md
     #[test]
     fn swarm_runner_setup_rejects_offline_runner() -> Result<()> {
         let value: serde_json::Value = serde_json::json!({
-            "total_count": 2,
+            "total_count": 3,
             "runners": [
+                {
+                    "name": "em-ci-hel2-cpx42-rust-01",
+                    "status": "online",
+                    "busy": false,
+                    "labels": [
+                        {"name": "em-ci"},
+                        {"name": "cpx42"},
+                        {"name": "rust-medium"},
+                        {"name": "rust-16gb"},
+                        {"name": "trusted-pr"}
+                    ]
+                },
                 {
                     "name": "em-ci-hel2-cx53-rust-01",
                     "status": "offline",

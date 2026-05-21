@@ -50,8 +50,8 @@ The checker verifies:
 - Every checked-in workflow has an explicit top-level `permissions:` block.
 - Every governed lane points at an existing workflow and job id, or uses `*` for an aggregate workflow lane.
 - The swarm routed Rust workflow keeps one normalized result check, the expected
-  CX53/CX43/GitHub-hosted routes, self-hosted runner labels, fallback reasons,
-  and result-job route aggregation.
+  CPX42/CX43/CX53/GitHub-hosted routes, self-hosted runner labels, fallback
+  reasons, and result-job route aggregation.
 - The Nightly mutation lane creates its `target/nightly-mutation` output
   directory before invoking `cargo mutants`.
 - The `CI Policy` workflow keeps the non-PR source/swarm sync boundary fetch
@@ -65,8 +65,8 @@ The checker verifies:
 The checker is advisory for branch-protection selection. The source repository
 currently requires `Fast Checks`; its intended normalized target is
 `PR Gate Success`. The swarm repository uses a separate routed target,
-`HL7v2 Rust Small Result`, only after the routed CX53, CX43 fallback, and
-GitHub-hosted fallback proofs are complete.
+`HL7v2 Rust Small Result`, only after the routed CPX42, CX43 fallback, CX53
+fallback, and GitHub-hosted fallback proofs are complete.
 ## Source Sync Boundary
 
 On non-PR events, the `CI Policy` workflow also fetches
