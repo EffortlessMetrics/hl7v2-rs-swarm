@@ -67,7 +67,6 @@ currently requires `Fast Checks`; its intended normalized target is
 `PR Gate Success`. The swarm repository uses a separate routed target,
 `HL7v2 Rust Small Result`, only after the routed CX53, CX43 fallback, and
 GitHub-hosted fallback proofs are complete.
-
 ## Source Sync Boundary
 
 On non-PR events, the `CI Policy` workflow also fetches
