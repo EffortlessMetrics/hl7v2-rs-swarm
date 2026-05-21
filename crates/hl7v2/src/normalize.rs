@@ -14,9 +14,11 @@
 //! assert!(normalized.starts_with(b"MSH|^~\\&|"));
 //! ```
 
-use crate::model::{Delims, Error};
-use crate::parser::parse;
-use crate::writer::write;
+use crate::model::Error;
+
+mod apply_delimiters;
+mod parse_message;
+mod render_message;
 
 /// Normalize HL7 v2 bytes.
 ///
@@ -28,13 +30,9 @@ use crate::writer::write;
 ///
 /// Returns an error when the input bytes cannot be parsed as an HL7 v2 message.
 pub fn normalize(bytes: &[u8], canonical_delims: bool) -> Result<Vec<u8>, Error> {
-    let mut message = parse(bytes)?;
-
-    if canonical_delims {
-        message.delims = Delims::default();
-    }
-
-    Ok(write(&message))
+    let mut message = parse_message::parse_message(bytes)?;
+    apply_delimiters::apply_delimiters(&mut message, canonical_delims);
+    Ok(render_message::render_message(&message))
 }
 
 #[cfg(test)]
