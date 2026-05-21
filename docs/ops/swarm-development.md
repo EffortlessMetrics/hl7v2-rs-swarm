@@ -27,10 +27,10 @@
   `cargo run -p xtask -- check-swarm-branch-protection --allow-unprotected`
   records the expected blocked state without claiming completion.
 - After runner-group and token setup, verify both `EM_RUNNER_READ_TOKEN` and
-  repository-visible CX53/CX43 runner setup with
+  repository-visible CPX42/CX43/CX53 runner setup with
   `cargo run -p xtask -- check-swarm-runner-setup`. Before setup is complete,
   `cargo run -p xtask -- check-swarm-runner-setup --allow-unavailable` records
-  the expected blocked state without claiming CX53/CX43 proof.
+  the expected blocked state without claiming CPX42/CX43/CX53 proof.
 
 ## Initial Routed CI Target
 
@@ -38,7 +38,7 @@ The first routed gate is intentionally narrow:
 
 ```text
 HL7v2 Rust Small:
-  CX53 -> CX43 -> GitHub-hosted
+  CPX42 -> CX43 -> CX53 -> GitHub-hosted
 ```
 
 The Rust command should match the current source-repo PR gate semantics:
@@ -99,7 +99,7 @@ Later routed workflow runs distinguish missing token setup from API failures:
   runner API did not return a usable `200` response for a non-401/non-403
   failure.
 - `router_reason=no_idle_runner` means the runner API was readable but no
-  eligible CX53 or CX43 runner was online and idle.
+  eligible CPX42, CX43, or CX53 runner was online and idle.
 
 Historical runs before the router split HTTP `401`/`403` outcomes recorded
 those failures as `runner_api_failed`.
@@ -358,10 +358,11 @@ runner-read route. The token used for repo work also could not list
 organization runner groups; GitHub returned `403` with the `admin:org` scope
 requirement for the runner-group API. The blocked runner setup verifier records
 the locally visible missing `EM_RUNNER_READ_TOKEN` repository secret, zero
-visible repository runners, and no visible CX53/CX43 routes without printing a
-success claim.
-Branch protection should remain deferred until CX53, CX43 fallback, and hosted
-fallback are all proven.
+visible repository runners, and no visible CPX42/CX43/CX53 routes without
+printing a success claim.
+Branch protection should remain deferred until CPX42, CX43 fallback, CX53
+fallback, and hosted fallback are all proven.
 
 Until those are complete, routed workflow proof can exercise hosted fallback
-behavior only. Do not claim CX53 or CX43 execution without run receipts.
+behavior only. Do not claim CPX42, CX43, or CX53 execution without run
+receipts.
