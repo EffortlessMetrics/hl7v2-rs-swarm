@@ -10225,6 +10225,14 @@ fn check_swarm_routed_rust_text_invariants(
             "router run id output",
             "run_id: ${{ steps.route.outputs.run_id }}",
         ),
+        (
+            "runner read token GH_TOKEN wiring",
+            "GH_TOKEN: ${{ secrets.EM_RUNNER_READ_TOKEN }}",
+        ),
+        (
+            "organization runner discovery endpoint",
+            "orgs/${ORG}/actions/runners?per_page=100",
+        ),
         ("fork PR hosted fallback", "choose \"github\" \"fork_pr\""),
         (
             "missing token hosted fallback",
@@ -10274,10 +10282,17 @@ fn check_swarm_routed_rust_text_invariants(
             "labels: [self-hosted, linux, x64, em-ci, cpx42, rust-16gb, rust-medium, trusted-pr]",
         ),
         ("hosted fallback runner", "runs-on: ubuntu-latest"),
-        ("CX53 container image", "image: em-ci-rust:1.95"),
-        ("CPX42 container cap", "options: --cpus=8 --memory=14g"),
-        ("CX53 container cap", "options: --cpus=14 --memory=28g"),
-        ("CX43 container cap", "options: --cpus=8 --memory=16g"),
+        ("CPX42 scratch prep", "Prepare CPX42 scratch"),
+        ("CPX42 Rust toolchain action", "dtolnay/rust-toolchain@v1"),
+        ("CPX42 Rust toolchain pin", "toolchain: 1.95.0"),
+        ("CX43/CX53 Rust image", "IMAGE: em-ci-rust:1.95"),
+        (
+            "CX43/CX53 local image preflight",
+            "docker image inspect \"$IMAGE\"",
+        ),
+        ("CX53 docker CPU cap", "--cpus=14"),
+        ("CX53 docker memory cap", "--memory=28g"),
+        ("CX43 docker memory cap", "--memory=16g"),
         ("CPX42 build jobs", "CARGO_BUILD_JOBS: \"7\""),
         ("CX53 build jobs", "CARGO_BUILD_JOBS: \"12\""),
         ("CX43 build jobs", "CARGO_BUILD_JOBS: \"8\""),
@@ -10339,6 +10354,14 @@ fn check_swarm_routed_rust_text_invariants(
         ),
     ] {
         require_workflow_snippet(workflow_text, &mut errors, workflow, description, snippet);
+    }
+
+    if workflow_text.contains("repos/$REPOSITORY/actions/runners")
+        || workflow_text.contains("repos/EffortlessMetrics/hl7v2-rs-swarm/actions/runners")
+    {
+        errors.push(format!(
+            "{workflow} must use organization runner discovery, not repository runner discovery"
+        ));
     }
 
     errors
@@ -10545,7 +10568,10 @@ fn check_swarm_runner_setup(
     allow_unavailable: bool,
 ) -> Result<()> {
     println!("🔎 Checking swarm runner discovery for {repo}...");
-    let api_path = format!("repos/{repo}/actions/runners?per_page=100");
+    let (org, _) = repo
+        .split_once('/')
+        .ok_or_else(|| anyhow!("repo must be in owner/name form, got `{repo}`"))?;
+    let api_path = format!("orgs/{org}/actions/runners?per_page=100");
     let args = vec!["api".to_string(), api_path];
     let local_runner_token = env::var(runner_read_token_env)
         .ok()
@@ -10556,11 +10582,13 @@ fn check_swarm_runner_setup(
         "current gh authentication".to_string()
     };
     let (code, stdout, stderr) = if let Some(token) = local_runner_token.as_deref() {
-        println!("Using local {runner_read_token_env} for exact runner-list API discovery.");
+        println!(
+            "Using local {runner_read_token_env} for exact organization runner-list API discovery."
+        );
         run_command_capture_status_with_env("gh", &args, &[("GH_TOKEN", token)])?
     } else {
         println!(
-            "Local {runner_read_token_env} is not set; using current gh authentication for an advisory runner-list API check."
+            "Local {runner_read_token_env} is not set; using current gh authentication for an advisory organization runner-list API check."
         );
         println!(
             "This does not prove whether the Actions org/repo secret is present; use the workflow route log or set {runner_read_token_env} locally for exact-token proof."
@@ -10570,13 +10598,13 @@ fn check_swarm_runner_setup(
     let mut errors = Vec::new();
     if code != Some(0) {
         errors.push(format!(
-            "cannot read repository runners for {repo} using {auth_source}; gh exited with {code:?}\nstdout:\n{stdout}\nstderr:\n{stderr}"
+            "cannot read organization runners for {org} using {auth_source}; gh exited with {code:?}\nstdout:\n{stdout}\nstderr:\n{stderr}"
         ));
         finish_swarm_runner_setup_check(errors, allow_unavailable)?;
         return Ok(());
     }
     let value: serde_json::Value = serde_json::from_str(&stdout)
-        .map_err(|e| anyhow!("cannot parse runner JSON for {repo}: {e}"))?;
+        .map_err(|e| anyhow!("cannot parse organization runner JSON for {org}: {e}"))?;
     errors.extend(swarm_runner_setup_errors(&value));
     if !finish_swarm_runner_setup_check(errors, allow_unavailable)? {
         return Ok(());
@@ -10606,7 +10634,7 @@ fn finish_swarm_runner_setup_check(errors: Vec<String>, allow_unavailable: bool)
             eprintln!("❌ {error}");
         }
         return Err(anyhow!(
-            "swarm runner discovery must read the repository runner-list API and expose online CPX42, CX43, and CX53 runners"
+            "swarm runner discovery must read the organization runner-list API and expose online CPX42, CX43, and CX53 runners"
         ));
     }
 
@@ -10620,7 +10648,7 @@ fn swarm_runner_setup_errors(value: &serde_json::Value) -> Vec<String> {
 
     let mut errors = Vec::new();
     if runners.is_empty() {
-        errors.push("runner API returned zero visible repository runners".to_string());
+        errors.push("runner API returned zero visible organization runners".to_string());
     }
 
     for (route, labels) in [
@@ -11516,6 +11544,33 @@ jobs:
         } else {
             Err(anyhow!(
                 "swarm routed invariant should reject missing runner API fallback: {errors:?}"
+            ))
+        }
+    }
+
+    #[test]
+    fn swarm_routed_rust_invariants_reject_repository_runner_discovery() -> Result<()> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| anyhow!("xtask manifest should have a workspace parent"))?
+            .to_path_buf();
+        let workflow = ".github/workflows/em-ci-routed-rust.yml";
+        let workflow_text = fs::read_to_string(root.join(workflow))?.replace(
+            "orgs/${ORG}/actions/runners?per_page=100",
+            "repos/$REPOSITORY/actions/runners?per_page=100",
+        );
+        let whitelist_text = fs::read_to_string(root.join("policy/ci-lane-whitelist.toml"))?;
+        let lanes = parse_ci_lane_whitelist(&whitelist_text)?;
+
+        let errors = check_swarm_routed_rust_text_invariants(workflow, &workflow_text, &lanes);
+        if errors
+            .iter()
+            .any(|error| error.contains("must use organization runner discovery"))
+        {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "swarm routed invariant should reject repository runner discovery: {errors:?}"
             ))
         }
     }

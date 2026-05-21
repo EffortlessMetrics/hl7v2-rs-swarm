@@ -159,8 +159,8 @@ marker = "docs/ops/swarm-development.md"
 current_state = [
   "hl7v2-rs-swarm is public and seeded from the source repository history.",
   "The routed Rust Small workflow is installed and has proven GitHub-hosted fallback on push and manual dispatch.",
-  "The routed Rust Small workflow reports missing runner-read secret setup separately from runner API failures.",
-  "The routed Rust Small workflow reports HTTP 401 and HTTP 403 runner API failures as explicit token unauthorized/forbidden fallback reasons.",
+  "The routed Rust Small workflow reports missing runner-read secret setup separately from organization runner API failures.",
+  "The routed Rust Small workflow reports organization runner API HTTP 401 and HTTP 403 failures as explicit token unauthorized/forbidden fallback reasons.",
   "The routed Rust Small workflow opts into the GitHub Actions Node 24 JavaScript action runtime during burn-in.",
   "Source-only TestPyPI OIDC, release-readiness receipt, cross-surface parity audit, Nightly mutation output-directory guard, evidence parity support-map audit guard, cargo-make cleanup, source-of-truth guide, and lifecycle retention coverage updates have been synced into hl7v2-rs-swarm.",
   "Swarm-only refactor PRs #43, #44, #45, and #46 were closed instead of merged because they were source-affecting changes without a source-first merge or explicit swarm-only exception.",
@@ -169,12 +169,12 @@ current_state = [
   "CI Policy runs the source-sync boundary guard on non-PR events after fetching the source repository.",
   "check-ci-lane-whitelist now guards the CI Policy source-sync fetch/check wiring so it cannot be removed silently.",
   "check-swarm-branch-protection verifies the eventual live branch protection state requires only HL7v2 Rust Small Result.",
-  "check-swarm-runner-setup verifies repository runner-list API discovery plus eventual online CPX42, CX43, and CX53 trusted-pr runners; if local EM_RUNNER_READ_TOKEN is set, it exercises that exact token, otherwise it uses current gh auth as an advisory check.",
+  "check-swarm-runner-setup verifies organization runner-list API discovery plus eventual online CPX42, CX43, and CX53 trusted-pr runners; if local EM_RUNNER_READ_TOKEN is set, it exercises that exact token, otherwise it uses current gh auth as an advisory check.",
   "New development should move to hl7v2-rs-swarm after routed CI and branch protection are fully proven.",
   "hl7v2-rs remains the source and release mirror until that role is deliberately changed.",
-  "Runner group access and runner-list API authorization remain external admin setup before CPX42/CX43/CX53 proof can complete.",
-  "The latest hosted workflow receives a masked EM_RUNNER_READ_TOKEN but gets HTTP 403 from the repository runner API, so the current blocker is discovery authorization rather than missing workflow-secret injection.",
-  "The current GitHub token cannot list organization runner groups; the runner-group API returned 403 requiring admin:org scope.",
+  "Organization runner-list visibility and CPX42/CX43/CX53 run receipts remain required before branch protection can be enabled.",
+  "The latest hosted workflow receives a masked EM_RUNNER_READ_TOKEN but gets HTTP 403 from the repository runner API, proving the old repository endpoint was the wrong discovery surface for organization runner groups rather than missing workflow-secret injection.",
+  "The router and check-swarm-runner-setup now use the organization runner API like the working swarm routers.",
 ]
 proof = [
   "Push proof passed: https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26125581115",
@@ -227,8 +227,12 @@ proof = [
   "Post-merge main also passed CI, CI Policy, Python Wheels, Security, and Server Docker Smoke on c947ba1422cb9abc1267f5335a015476acb85001.",
   "Local source-sync boundary guard passed after the PR #42 merge with nine intentional swarm-only deltas.",
   "Post-PR-34 blocked runner setup verifier recorded missing EM_RUNNER_READ_TOKEN, zero visible repository runners, and no visible CX53/CX43 routes without printing a success claim.",
-  "Current post-PR-71 blocked runner setup verifier records local EM_RUNNER_READ_TOKEN as unset, uses current gh auth only as an advisory runner-list check, and still finds no visible CPX42/CX43/CX53 routes without printing a success claim.",
+  "Current blocked runner setup verifier records local EM_RUNNER_READ_TOKEN as unset, uses current gh auth only as an advisory organization runner-list check, and still finds no visible CPX42/CX43/CX53 routes without printing a success claim.",
   "Post-PR-71 HL7v2 Rust Small proof passed: https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26222573504 via GitHub-hosted fallback with router_target=github and router_reason=runner_token_forbidden; the route log showed EM_RUNNER_READ_TOKEN masked in the environment and the runner-list API returned HTTP 403; CPX42, CX43, and CX53 skipped.",
+  "PR #72 corrected the blocker record: the secret is present, and the next router/checker path must use organization runner discovery instead of the repository runner endpoint.",
+  "PR #73 switched the router and runner setup verifier to organization runner discovery; the first proof selected and scheduled CPX42, then failed before the Rust gate because the selected CPX42 runner did not have local image em-ci-rust:1.95.",
+  "The CPX42 implementation path now uses the pinned Rust 1.95 toolchain action directly on the self-hosted runner and prepares TMPDIR before that action; CX43 and CX53 keep the existing local-image Docker execution pattern.",
+  "PR #73 CPX42 proof passed: https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26225834323 with router_target=cpx42, router_reason=cpx42_idle, Rust Small on CPX42 success, CX43/CX53/GitHub-hosted skipped, and HL7v2 Rust Small Result success.",
   "Current post-PR-38 branch-protection verifier still records branch protection as intentionally deferred when run with --allow-unprotected.",
   "Local source-sync boundary guard command: cargo +1.95.0 run -p xtask -- check-source-sync-boundary --source-ref source/main --swarm-ref HEAD",
   "Blocked runner setup verifier command: cargo +1.95.0 run -p xtask -- check-swarm-runner-setup --allow-unavailable",
@@ -245,7 +249,7 @@ non_claims = [
   "No release or publish secrets moved.",
   "No crates.io, TestPyPI, PyPI, npm, tag, or GitHub release action.",
   "No branch protection enabled yet.",
-  "No CPX42, CX43, or CX53 proof claimed yet.",
+  "No CX43 or CX53 proof claimed yet.",
 ]
 
 [[work_item]]
