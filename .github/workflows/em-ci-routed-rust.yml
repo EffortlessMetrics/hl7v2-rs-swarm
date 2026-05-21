@@ -8,6 +8,25 @@ on:
     branches: [main]
   merge_group:
   workflow_dispatch:
+    inputs:
+      skip_cpx42:
+        description: "Manual proof only: skip CPX42 route selection"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+      skip_cx43:
+        description: "Manual proof only: skip CX43 route selection"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+      skip_cx53:
+        description: "Manual proof only: skip CX53 route selection"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
 
 permissions:
   actions: read
@@ -56,6 +75,9 @@ jobs:
           IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
           ORG: EffortlessMetrics
           REPOSITORY: ${{ github.repository }}
+          ROUTE_SKIP_CPX42: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_cpx42 == 'true' }}
+          ROUTE_SKIP_CX43: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_cx43 == 'true' }}
+          ROUTE_SKIP_CX53: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_cx53 == 'true' }}
           WORKFLOW_NAME: em-ci-routed-rust
         run: |
           set -euo pipefail
@@ -78,6 +100,9 @@ jobs:
               echo "- run_id: \`$GITHUB_RUN_ID\`"
               echo "- router_target: \`$target\`"
               echo "- router_reason: \`$reason\`"
+              echo "- route_skip_cpx42: \`${ROUTE_SKIP_CPX42:-false}\`"
+              echo "- route_skip_cx43: \`${ROUTE_SKIP_CX43:-false}\`"
+              echo "- route_skip_cx53: \`${ROUTE_SKIP_CX53:-false}\`"
             } >> "$GITHUB_STEP_SUMMARY"
           }
 
@@ -108,11 +133,16 @@ jobs:
             exit 0
           fi
 
-          cpx42="$(jq -r '[.runners[]
-            | select(.status == "online" and (.busy | not))
-            | select([.labels[].name] as $labels
-              | (["em-ci", "cpx42", "rust-medium", "rust-16gb", "trusted-pr"] - $labels | length == 0))
-            | .name] | first // ""' "$response")"
+          cpx42=""
+          if [ "${ROUTE_SKIP_CPX42:-false}" != "true" ]; then
+            cpx42="$(jq -r '[.runners[]
+              | select(.status == "online" and (.busy | not))
+              | select([.labels[].name] as $labels
+                | (["em-ci", "cpx42", "rust-medium", "rust-16gb", "trusted-pr"] - $labels | length == 0))
+              | .name] | first // ""' "$response")"
+          else
+            echo "Manual workflow_dispatch proof skipped CPX42 route selection"
+          fi
 
           if [ -n "$cpx42" ]; then
             echo "Selected CPX42 runner: $cpx42"
@@ -120,11 +150,16 @@ jobs:
             exit 0
           fi
 
-          cx43="$(jq -r '[.runners[]
-            | select(.status == "online" and (.busy | not))
-            | select([.labels[].name] as $labels
-              | (["em-ci", "cx43", "rust-small", "trusted-pr"] - $labels | length == 0))
-            | .name] | first // ""' "$response")"
+          cx43=""
+          if [ "${ROUTE_SKIP_CX43:-false}" != "true" ]; then
+            cx43="$(jq -r '[.runners[]
+              | select(.status == "online" and (.busy | not))
+              | select([.labels[].name] as $labels
+                | (["em-ci", "cx43", "rust-small", "trusted-pr"] - $labels | length == 0))
+              | .name] | first // ""' "$response")"
+          else
+            echo "Manual workflow_dispatch proof skipped CX43 route selection"
+          fi
 
           if [ -n "$cx43" ]; then
             echo "Selected CX43 runner: $cx43"
@@ -132,11 +167,16 @@ jobs:
             exit 0
           fi
 
-          cx53="$(jq -r '[.runners[]
-            | select(.status == "online" and (.busy | not))
-            | select([.labels[].name] as $labels
-              | (["em-ci", "cx53", "rust-small", "trusted-pr"] - $labels | length == 0))
-            | .name] | first // ""' "$response")"
+          cx53=""
+          if [ "${ROUTE_SKIP_CX53:-false}" != "true" ]; then
+            cx53="$(jq -r '[.runners[]
+              | select(.status == "online" and (.busy | not))
+              | select([.labels[].name] as $labels
+                | (["em-ci", "cx53", "rust-small", "trusted-pr"] - $labels | length == 0))
+              | .name] | first // ""' "$response")"
+          else
+            echo "Manual workflow_dispatch proof skipped CX53 route selection"
+          fi
 
           if [ -n "$cx53" ]; then
             echo "Selected CX53 runner: $cx53"

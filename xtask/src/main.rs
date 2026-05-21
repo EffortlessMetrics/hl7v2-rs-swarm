@@ -10201,6 +10201,9 @@ fn check_swarm_routed_rust_text_invariants(
 
     for (description, snippet) in [
         ("workflow name", "name: HL7v2 Rust Small"),
+        ("manual CPX42 skip input", "skip_cpx42:"),
+        ("manual CX43 skip input", "skip_cx43:"),
+        ("manual CX53 skip input", "skip_cx53:"),
         (
             "normalized result job name",
             "name: HL7v2 Rust Small Result",
@@ -10233,6 +10236,18 @@ fn check_swarm_routed_rust_text_invariants(
             "organization runner discovery endpoint",
             "orgs/${ORG}/actions/runners?per_page=100",
         ),
+        (
+            "manual CPX42 skip env",
+            "ROUTE_SKIP_CPX42: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_cpx42 == 'true' }}",
+        ),
+        (
+            "manual CX43 skip env",
+            "ROUTE_SKIP_CX43: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_cx43 == 'true' }}",
+        ),
+        (
+            "manual CX53 skip env",
+            "ROUTE_SKIP_CX53: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_cx53 == 'true' }}",
+        ),
         ("fork PR hosted fallback", "choose \"github\" \"fork_pr\""),
         (
             "missing token hosted fallback",
@@ -10257,6 +10272,18 @@ fn check_swarm_routed_rust_text_invariants(
         ("CPX42 idle route", "choose \"cpx42\" \"cpx42_idle\""),
         ("CX43 idle route", "choose \"cx43\" \"cx43_idle\""),
         ("CX53 idle route", "choose \"cx53\" \"cx53_idle\""),
+        (
+            "manual CPX42 route skip",
+            "Manual workflow_dispatch proof skipped CPX42 route selection",
+        ),
+        (
+            "manual CX43 route skip",
+            "Manual workflow_dispatch proof skipped CX43 route selection",
+        ),
+        (
+            "manual CX53 route skip",
+            "Manual workflow_dispatch proof skipped CX53 route selection",
+        ),
         (
             "CPX42 selector labels",
             "[\"em-ci\", \"cpx42\", \"rust-medium\", \"rust-16gb\", \"trusted-pr\"] - $labels",

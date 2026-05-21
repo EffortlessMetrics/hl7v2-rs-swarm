@@ -348,6 +348,10 @@ branch protection can be enabled:
 - Prove CX43 fallback routing.
 - Prove CX53 fallback routing.
 - Re-prove GitHub-hosted fallback after organization discovery is live.
+- The `workflow_dispatch` route has manual proof inputs for fallback receipts:
+  `skip_cpx42`, `skip_cx43`, and `skip_cx53`. These inputs only apply to
+  manual dispatches; normal push and pull-request routing still follows
+  CPX42 -> CX43 -> CX53 -> GitHub-hosted.
 - Verify `EM_RUNNER_READ_TOKEN` and runner visibility with:
 
   ```bash

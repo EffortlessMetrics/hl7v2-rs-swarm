@@ -233,6 +233,7 @@ proof = [
   "PR #73 switched the router and runner setup verifier to organization runner discovery; the first proof selected and scheduled CPX42, then failed before the Rust gate because the selected CPX42 runner did not have local image em-ci-rust:1.95.",
   "The CPX42 implementation path now uses the pinned Rust 1.95 toolchain action directly on the self-hosted runner and prepares TMPDIR before that action; CX43 and CX53 keep the existing local-image Docker execution pattern.",
   "PR #73 CPX42 proof passed: https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26225834323 with router_target=cpx42, router_reason=cpx42_idle, Rust Small on CPX42 success, CX43/CX53/GitHub-hosted skipped, and HL7v2 Rust Small Result success.",
+  "The routed workflow now has manual workflow_dispatch proof inputs skip_cpx42, skip_cx43, and skip_cx53 so fallback receipts can be produced without changing normal push or pull-request route preference.",
   "Current post-PR-38 branch-protection verifier still records branch protection as intentionally deferred when run with --allow-unprotected.",
   "Local source-sync boundary guard command: cargo +1.95.0 run -p xtask -- check-source-sync-boundary --source-ref source/main --swarm-ref HEAD",
   "Blocked runner setup verifier command: cargo +1.95.0 run -p xtask -- check-swarm-runner-setup --allow-unavailable",
