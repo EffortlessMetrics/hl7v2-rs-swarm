@@ -251,59 +251,45 @@ jobs:
     runs-on: [self-hosted, Linux, X64, em-ci, cx53, rust-small, trusted-pr]
     timeout-minutes: 25
     env:
-      IMAGE: em-ci-rust:1.95
       CARGO_BUILD_JOBS: "12"
       CARGO_INCREMENTAL: "0"
       CARGO_TARGET_DIR: /mnt/ci-scratch/hl7v2-rs-swarm/${{ github.run_id }}-${{ github.run_attempt }}
       TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}
-      CARGO_HOME_DIR: /mnt/ci-cache/cargo-home
-      SCCACHE_DIR: /mnt/ci-cache/sccache
     steps:
       - uses: actions/checkout@v6
+
+      - name: Prepare CX53 scratch
+        run: |
+          set -euo pipefail
+          ci-disk-guard /mnt/ci-scratch 100
+          ci-disk-guard /mnt/ci-cache 20
+          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR"
+
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: 1.95.0
+          components: rustfmt, clippy
 
       - name: Preflight disk and toolchain
         run: |
           set -euo pipefail
           ci-disk-guard /mnt/ci-scratch 100
-          ci-disk-guard /mnt/docker 20
           ci-disk-guard /mnt/ci-cache 20
-          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR" "$CARGO_HOME_DIR" "$SCCACHE_DIR"
-          docker image inspect "$IMAGE" >/dev/null
+          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR"
           df -h /mnt/ci-scratch /mnt/docker /mnt/ci-cache || true
-          docker run --rm "$IMAGE" bash -lc 'rustc --version; cargo --version; if command -v sccache >/dev/null 2>&1; then sccache --show-stats || true; fi'
+          rustc --version
+          cargo --version
+          if command -v python3 >/dev/null 2>&1; then python3 --version; elif command -v python >/dev/null 2>&1; then python --version; fi
+          if command -v sccache >/dev/null 2>&1; then sccache --show-stats || true; fi
 
       - name: Run Rust small gate
-        run: |
-          set -euo pipefail
-          docker run --rm \
-            --cpus=14 \
-            --memory=28g \
-            -e CARGO_TERM_COLOR \
-            -e RUST_BACKTRACE \
-            -e RUSTFLAGS \
-            -e RUSTDOCFLAGS \
-            -e PYO3_USE_ABI3_FORWARD_COMPATIBILITY \
-            -e FORCE_JAVASCRIPT_ACTIONS_TO_NODE24 \
-            -e CARGO_BUILD_JOBS \
-            -e CARGO_INCREMENTAL \
-            -e CARGO_TARGET_DIR=/target \
-            -e TMPDIR=/tmp/jobtmp \
-            -e CARGO_HOME=/cargo-home \
-            -e SCCACHE_DIR=/sccache \
-            -v "$GITHUB_WORKSPACE:/workspace" \
-            -v "$CARGO_TARGET_DIR:/target" \
-            -v "$TMPDIR:/tmp/jobtmp" \
-            -v "$CARGO_HOME_DIR:/cargo-home" \
-            -v "$SCCACHE_DIR:/sccache" \
-            -w /workspace \
-            "$IMAGE" \
-            bash -lc 'git config --global --add safe.directory /workspace; cargo run -p xtask -- gate --check'
+        run: cargo run -p xtask -- gate --check
 
       - name: Cleanup and final stats
         if: always()
         run: |
           set +e
-          docker run --rm -e SCCACHE_DIR=/sccache -v "$SCCACHE_DIR:/sccache" "$IMAGE" bash -lc 'if command -v sccache >/dev/null 2>&1; then sccache --show-stats || true; fi' || true
+          if command -v sccache >/dev/null 2>&1; then sccache --show-stats || true; fi
           rm -rf "$TMPDIR"
           rm -rf "$CARGO_TARGET_DIR"
           df -h /mnt/ci-scratch /mnt/docker /mnt/ci-cache || true
@@ -318,59 +304,45 @@ jobs:
     runs-on: [self-hosted, Linux, X64, em-ci, cx43, rust-small, trusted-pr]
     timeout-minutes: 30
     env:
-      IMAGE: em-ci-rust:1.95
       CARGO_BUILD_JOBS: "8"
       CARGO_INCREMENTAL: "0"
       CARGO_TARGET_DIR: /mnt/ci-scratch/hl7v2-rs-swarm/${{ github.run_id }}-${{ github.run_attempt }}
       TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}
-      CARGO_HOME_DIR: /mnt/ci-cache/cargo-home
-      SCCACHE_DIR: /mnt/ci-cache/sccache
     steps:
       - uses: actions/checkout@v6
+
+      - name: Prepare CX43 scratch
+        run: |
+          set -euo pipefail
+          ci-disk-guard /mnt/ci-scratch 100
+          ci-disk-guard /mnt/ci-cache 20
+          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR"
+
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: 1.95.0
+          components: rustfmt, clippy
 
       - name: Preflight disk and toolchain
         run: |
           set -euo pipefail
           ci-disk-guard /mnt/ci-scratch 100
-          ci-disk-guard /mnt/docker 20
           ci-disk-guard /mnt/ci-cache 20
-          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR" "$CARGO_HOME_DIR" "$SCCACHE_DIR"
-          docker image inspect "$IMAGE" >/dev/null
+          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR"
           df -h /mnt/ci-scratch /mnt/docker /mnt/ci-cache || true
-          docker run --rm "$IMAGE" bash -lc 'rustc --version; cargo --version; if command -v sccache >/dev/null 2>&1; then sccache --show-stats || true; fi'
+          rustc --version
+          cargo --version
+          if command -v python3 >/dev/null 2>&1; then python3 --version; elif command -v python >/dev/null 2>&1; then python --version; fi
+          if command -v sccache >/dev/null 2>&1; then sccache --show-stats || true; fi
 
       - name: Run Rust small gate
-        run: |
-          set -euo pipefail
-          docker run --rm \
-            --cpus=8 \
-            --memory=16g \
-            -e CARGO_TERM_COLOR \
-            -e RUST_BACKTRACE \
-            -e RUSTFLAGS \
-            -e RUSTDOCFLAGS \
-            -e PYO3_USE_ABI3_FORWARD_COMPATIBILITY \
-            -e FORCE_JAVASCRIPT_ACTIONS_TO_NODE24 \
-            -e CARGO_BUILD_JOBS \
-            -e CARGO_INCREMENTAL \
-            -e CARGO_TARGET_DIR=/target \
-            -e TMPDIR=/tmp/jobtmp \
-            -e CARGO_HOME=/cargo-home \
-            -e SCCACHE_DIR=/sccache \
-            -v "$GITHUB_WORKSPACE:/workspace" \
-            -v "$CARGO_TARGET_DIR:/target" \
-            -v "$TMPDIR:/tmp/jobtmp" \
-            -v "$CARGO_HOME_DIR:/cargo-home" \
-            -v "$SCCACHE_DIR:/sccache" \
-            -w /workspace \
-            "$IMAGE" \
-            bash -lc 'git config --global --add safe.directory /workspace; cargo run -p xtask -- gate --check'
+        run: cargo run -p xtask -- gate --check
 
       - name: Cleanup and final stats
         if: always()
         run: |
           set +e
-          docker run --rm -e SCCACHE_DIR=/sccache -v "$SCCACHE_DIR:/sccache" "$IMAGE" bash -lc 'if command -v sccache >/dev/null 2>&1; then sccache --show-stats || true; fi' || true
+          if command -v sccache >/dev/null 2>&1; then sccache --show-stats || true; fi
           rm -rf "$TMPDIR"
           rm -rf "$CARGO_TARGET_DIR"
           df -h /mnt/ci-scratch /mnt/docker /mnt/ci-cache || true
