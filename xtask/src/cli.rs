@@ -161,7 +161,7 @@ pub(crate) enum Commands {
         #[arg(long)]
         allow_unprotected: bool,
     },
-    /// Verify swarm CPX42/CX43/CX53 runner setup is visible through the repository runner API
+    /// Verify swarm CPX42/CX43/CX53 runner setup is visible through the organization runner API
     CheckSwarmRunnerSetup {
         /// GitHub repository owner/name to inspect
         #[arg(long, default_value = "EffortlessMetrics/hl7v2-rs-swarm")]
