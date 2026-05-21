@@ -67,25 +67,57 @@ pub(crate) fn publish(
     retry_attempts: u32,
     retry_delay_secs: u64,
 ) -> Result<()> {
-    if !yes {
-        return Err(anyhow!(
+    publish_workflow::validate_confirmation(yes)?;
+    let crates = publish_workflow::resolve_crates(from.as_deref())?;
+    publish_workflow::warn_if_registry_token_missing();
+    publish_workflow::run_publish_sequence(&crates, retry_attempts, retry_delay_secs)
+}
+
+mod publish_workflow {
+    use super::{Duration, Result, env, publish_crate, publish_order, sleep};
+    use anyhow::anyhow;
+
+    pub(super) fn validate_confirmation(yes: bool) -> Result<()> {
+        if yes {
+            return Ok(());
+        }
+
+        Err(anyhow!(
             "Refusing to publish without --yes. Run `cargo run -p xtask -- publish-plan` first."
-        ));
+        ))
     }
 
-    let crates = publish_order(from.as_deref())?;
-    if env::var_os("CARGO_REGISTRY_TOKEN").is_none() {
-        println!(
-            "Warning: CARGO_REGISTRY_TOKEN is not set; cargo publish will use local cargo credentials if available."
-        );
+    pub(super) fn resolve_crates(from: Option<&str>) -> Result<Vec<String>> {
+        publish_order(from)
     }
 
-    println!("🚢 Publishing {} crates to crates.io...", crates.len());
-    for (index, crate_name) in crates.iter().enumerate() {
-        publish_crate(crate_name, retry_attempts, retry_delay_secs)?;
+    pub(super) fn warn_if_registry_token_missing() {
+        if env::var_os("CARGO_REGISTRY_TOKEN").is_none() {
+            println!(
+                "Warning: CARGO_REGISTRY_TOKEN is not set; cargo publish will use local cargo credentials if available."
+            );
+        }
+    }
+
+    pub(super) fn run_publish_sequence(
+        crates: &[String],
+        retry_attempts: u32,
+        retry_delay_secs: u64,
+    ) -> Result<()> {
+        println!("🚢 Publishing {} crates to crates.io...", crates.len());
+        for (index, crate_name) in crates.iter().enumerate() {
+            publish_crate(crate_name, retry_attempts, retry_delay_secs)?;
+            wait_for_index_propagation_if_needed(index, crates.len(), retry_delay_secs);
+        }
+
+        println!("✅ Publish sequence complete!");
+        Ok(())
+    }
+
+    fn wait_for_index_propagation_if_needed(index: usize, total: usize, retry_delay_secs: u64) {
         let has_next = index
             .checked_add(1)
-            .is_some_and(|next_index| next_index < crates.len());
+            .is_some_and(|next_index| next_index < total);
         if has_next && retry_delay_secs > 0 {
             println!(
                 "Waiting {retry_delay_secs}s for crates.io index propagation before continuing..."
@@ -93,9 +125,6 @@ pub(crate) fn publish(
             sleep(Duration::from_secs(retry_delay_secs));
         }
     }
-
-    println!("✅ Publish sequence complete!");
-    Ok(())
 }
 
 pub(crate) fn publish_dry_run(
