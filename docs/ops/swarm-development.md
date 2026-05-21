@@ -26,11 +26,14 @@
   `cargo run -p xtask -- check-swarm-branch-protection`. Before it is enabled,
   `cargo run -p xtask -- check-swarm-branch-protection --allow-unprotected`
   records the expected blocked state without claiming completion.
-- After runner-group and token setup, verify both `EM_RUNNER_READ_TOKEN` and
-  repository-visible CPX42/CX43/CX53 runner setup with
-  `cargo run -p xtask -- check-swarm-runner-setup`. Before setup is complete,
-  `cargo run -p xtask -- check-swarm-runner-setup --allow-unavailable` records
-  the expected blocked state without claiming CPX42/CX43/CX53 proof.
+- After runner-group and token authorization setup, verify repository runner
+  discovery plus CPX42/CX43/CX53 runner setup with
+  `cargo run -p xtask -- check-swarm-runner-setup`. If the exact
+  `EM_RUNNER_READ_TOKEN` value is available locally, export it before running
+  that command so the checker exercises the same token as the router. Before
+  setup is complete, `cargo run -p xtask -- check-swarm-runner-setup
+  --allow-unavailable` records the expected blocked state without claiming
+  CPX42/CX43/CX53 proof.
 
 ## Initial Routed CI Target
 
@@ -334,7 +337,8 @@ The swarm repository has been created and seeded from the source history. The
 following admin steps are required before self-hosted proof can complete:
 
 - Add `hl7v2-rs-swarm` to the `em-ci-small` runner group selected repositories.
-- Scope `EM_RUNNER_READ_TOKEN` to `hl7v2-rs-swarm`.
+- Ensure `EM_RUNNER_READ_TOKEN` can read
+  `repos/EffortlessMetrics/hl7v2-rs-swarm/actions/runners`.
 - Verify `EM_RUNNER_READ_TOKEN` and runner visibility with:
 
   ```bash
@@ -348,20 +352,36 @@ following admin steps are required before self-hosted proof can complete:
   cargo +1.95.0 run -p xtask -- check-swarm-runner-setup --allow-unavailable
   ```
 
-Live checks on 2026-05-20 after PR #38 still showed zero visible repository
-runners and no `main` branch protection. The current local `gh` identity
-receives `404` when checking the repository `EM_RUNNER_READ_TOKEN` secret,
-while the latest hosted workflow run receives a masked `EM_RUNNER_READ_TOKEN`
-and then gets HTTP `403` from the repository runner API. That means the
-workflow has a token value, but the token still is not usable for the
-runner-read route. The token used for repo work also could not list
-organization runner groups; GitHub returned `403` with the `admin:org` scope
-requirement for the runner-group API. The blocked runner setup verifier records
-the locally visible missing `EM_RUNNER_READ_TOKEN` repository secret, zero
-visible repository runners, and no visible CPX42/CX43/CX53 routes without
-printing a success claim.
+The latest post-#71 routed proof on 2026-05-21 showed the workflow receives a
+masked `EM_RUNNER_READ_TOKEN`, then receives HTTP `403` from the repository
+runner-list API. That means the current blocker is runner discovery
+authorization, not missing workflow-secret injection. The likely fixes are to
+add `hl7v2-rs-swarm` to the token's selected repositories, grant the token
+repository Administration read permission, refresh SSO authorization, or switch
+the router to an org runner-group discovery endpoint if repository runner
+listing remains the wrong surface.
+
+The blocked runner setup verifier now treats local `EM_RUNNER_READ_TOKEN` as an
+optional exact-token check. If the environment variable is not set locally, it
+uses the current `gh` identity only as an advisory runner-list check and does
+not claim anything about the Actions secret. Current blocked-state evidence
+still shows no visible CPX42/CX43/CX53 routes without printing a success claim.
 Branch protection should remain deferred until CPX42, CX43 fallback, CX53
 fallback, and hosted fallback are all proven.
+
+Exact-token discovery check:
+
+```bash
+curl -i \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $EM_RUNNER_READ_TOKEN" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  "https://api.github.com/repos/EffortlessMetrics/hl7v2-rs-swarm/actions/runners?per_page=100"
+```
+
+Expected completion state is HTTP `200` plus visible CPX42/CX43/CX53 runners
+with the labels guarded by `check-ci-lane-whitelist`. HTTP `403` means the
+token/repository/SSO authorization is still insufficient for runner discovery.
 
 Until those are complete, routed workflow proof can exercise hosted fallback
 behavior only. Do not claim CPX42, CX43, or CX53 execution without run
