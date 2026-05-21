@@ -232,60 +232,73 @@ impl Default for FileBatch {
 /// structure, is missing required batch segments, contains malformed messages,
 /// or declares a trailer message count that does not match the parsed messages.
 pub fn parse_batch(data: &[u8]) -> Result<FileBatch, BatchError> {
-    let text = std::str::from_utf8(data)
-        .map_err(|_err| BatchError::InvalidStructure("Invalid UTF-8 data".to_string()))?;
-
+    let text = parse_batch_text(data)?;
     let lines = batch_segment_lines(text);
-
-    if lines.is_empty() {
-        return Err(BatchError::InvalidStructure("Empty batch data".to_string()));
-    }
-
-    // Check first line for batch type
-    let Some(first_line) = lines.first().copied() else {
-        return Err(BatchError::InvalidStructure("Empty batch data".to_string()));
-    };
+    let first_line = first_batch_line(&lines)?;
 
     if first_line.text.starts_with("FHS") {
         parse_file_batch(text, &lines)
     } else if first_line.text.starts_with("BHS") {
-        // Single batch without file wrapper
-        let batch = parse_single_batch(text, &lines)?;
-        let mut file_batch = FileBatch::new();
-        // Override batch_type to Single for BHS-only batches
-        file_batch.info.batch_type = BatchType::Single;
-        // Propagate the nested batch's info to the FileBatch for single batches
-        file_batch.info.field_separator = batch.info.field_separator;
-        file_batch.info.encoding_characters = batch.info.encoding_characters.clone();
-        file_batch.info.sending_application = batch.info.sending_application.clone();
-        file_batch.info.sending_facility = batch.info.sending_facility.clone();
-        file_batch.info.receiving_application = batch.info.receiving_application.clone();
-        file_batch.info.receiving_facility = batch.info.receiving_facility.clone();
-        file_batch.info.security = batch.info.security.clone();
-        file_batch.info.batch_name = batch.info.batch_name.clone();
-        file_batch.info.batch_comment = batch.info.batch_comment.clone();
-        file_batch.info.message_count = batch.info.message_count;
-        file_batch.info.trailer_comment = batch.info.trailer_comment.clone();
-        file_batch.add_batch(batch);
-        Ok(file_batch)
+        parse_bhs_wrapped_batch(text, &lines)
     } else if first_line.text.starts_with("MSH") {
-        // Not a batch, just messages
-        let messages = parse_messages(text, &lines)?;
-        let batch = Batch {
-            header: None,
-            messages,
-            trailer: None,
-            info: BatchInfo::default(),
-        };
-        let mut file_batch = FileBatch::new();
-        file_batch.add_batch(batch);
-        Ok(file_batch)
+        parse_message_only_batch(text, &lines)
     } else {
         Err(BatchError::InvalidStructure(format!(
             "Unknown first segment: {}",
             segment_prefix(first_line.text)
         )))
     }
+}
+
+fn parse_batch_text(data: &[u8]) -> Result<&str, BatchError> {
+    std::str::from_utf8(data)
+        .map_err(|_err| BatchError::InvalidStructure("Invalid UTF-8 data".to_string()))
+}
+
+fn first_batch_line<'a>(lines: &'a [BatchLine<'a>]) -> Result<BatchLine<'a>, BatchError> {
+    lines
+        .first()
+        .copied()
+        .ok_or_else(|| BatchError::InvalidStructure("Empty batch data".to_string()))
+}
+
+fn parse_bhs_wrapped_batch(source: &str, lines: &[BatchLine<'_>]) -> Result<FileBatch, BatchError> {
+    let batch = parse_single_batch(source, lines)?;
+    let mut file_batch = FileBatch::new();
+    file_batch.info.batch_type = BatchType::Single;
+    sync_file_batch_info_from_batch(&mut file_batch, &batch);
+    file_batch.add_batch(batch);
+    Ok(file_batch)
+}
+
+fn sync_file_batch_info_from_batch(file_batch: &mut FileBatch, batch: &Batch) {
+    file_batch.info.field_separator = batch.info.field_separator;
+    file_batch.info.encoding_characters = batch.info.encoding_characters.clone();
+    file_batch.info.sending_application = batch.info.sending_application.clone();
+    file_batch.info.sending_facility = batch.info.sending_facility.clone();
+    file_batch.info.receiving_application = batch.info.receiving_application.clone();
+    file_batch.info.receiving_facility = batch.info.receiving_facility.clone();
+    file_batch.info.security = batch.info.security.clone();
+    file_batch.info.batch_name = batch.info.batch_name.clone();
+    file_batch.info.batch_comment = batch.info.batch_comment.clone();
+    file_batch.info.message_count = batch.info.message_count;
+    file_batch.info.trailer_comment = batch.info.trailer_comment.clone();
+}
+
+fn parse_message_only_batch(
+    source: &str,
+    lines: &[BatchLine<'_>],
+) -> Result<FileBatch, BatchError> {
+    let messages = parse_messages(source, lines)?;
+    let batch = Batch {
+        header: None,
+        messages,
+        trailer: None,
+        info: BatchInfo::default(),
+    };
+    let mut file_batch = FileBatch::new();
+    file_batch.add_batch(batch);
+    Ok(file_batch)
 }
 
 #[derive(Clone, Copy)]
