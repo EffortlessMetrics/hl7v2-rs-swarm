@@ -386,6 +386,30 @@ but then failed because the CX53 local image also lacked `cargo`/`rustc` on
 as CPX42 while retaining their own runner labels, build-job caps, scratch
 directories, disk guards, and cleanup.
 
+PR #75 then proved the corrected fallback paths on main commit
+`32ef00a5e0e6ac665c209dbdc9cecaa7f0e91ab0`:
+
+- Default CPX42 post-merge proof passed:
+  `https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26231898038`
+  with `router_target=cpx42`, `router_reason=cpx42_idle`, `Rust Small on
+  CPX42` success, and CX43/CX53/GitHub-hosted skipped.
+- CX53 fallback proof passed:
+  `https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26231909264`
+  with `skip_cpx42=true`, `router_target=cx53`,
+  `router_reason=cx53_idle`, `Rust Small on CX53` success, and
+  CPX42/CX43/GitHub-hosted skipped.
+- Hosted fallback proof passed:
+  `https://github.com/EffortlessMetrics/hl7v2-rs-swarm/actions/runs/26232187935`
+  with `skip_cpx42=true`, `skip_cx53=true`, `router_target=github`,
+  `router_reason=no_idle_runner`, `Rust Small on GitHub Hosted` success, and
+  CPX42/CX43/CX53 skipped.
+
+CX43 fallback is still not proven. The hosted fallback proof above left CX43
+unskipped, and the router still selected GitHub-hosted with `no_idle_runner`, so
+no idle/visible CX43 route was available at proof time. Branch protection should
+remain deferred until a real `router_target=cx43`, `router_reason=cx43_idle`,
+`Rust Small on CX43` success receipt exists.
+
 The blocked runner setup verifier now treats local `EM_RUNNER_READ_TOKEN` as an
 optional exact-token check. If the environment variable is not set locally, it
 uses the current `gh` identity only as an advisory runner-list check and does
