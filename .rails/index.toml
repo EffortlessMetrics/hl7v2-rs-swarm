@@ -1,0 +1,48 @@
+schema_version = "1.0"
+
+[project]
+repo = "hl7v2-rs-swarm"
+framework = "rails"
+root = ".rails"
+
+[conventions]
+proposal_prefix = "HL7V2-PROP"
+spec_prefix = "HL7V2-SPEC"
+adr_prefix = "HL7V2-ADR"
+lane_prefix = "HL7V2-LANE"
+
+[external_namespaces]
+codex = ".codex"
+speckit = ".spec"
+claude = ".claude"
+jules = ".jules"
+
+[[artifact]]
+id = "HL7V2-PROP-0001"
+kind = "proposal"
+path = ".rails/proposals/HL7V2-PROP-0001-rails-knowledge-base.md"
+status = "accepted"
+owner = "rails-adoption"
+
+[[artifact]]
+id = "HL7V2-SPEC-0001"
+kind = "spec"
+path = ".rails/specs/HL7V2-SPEC-0001-rails-artifact-graph.md"
+status = "accepted"
+owner = "rails-adoption"
+linked_proposal = "HL7V2-PROP-0001"
+
+[[artifact]]
+id = "HL7V2-ADR-0001"
+kind = "adr"
+path = ".rails/adr/HL7V2-ADR-0001-rails-framework-footprint.md"
+status = "accepted"
+owner = "rails-adoption"
+linked_specs = ["HL7V2-SPEC-0001"]
+
+[[lane]]
+id = "rails-adoption"
+name = "Rails adoption"
+path = ".rails/lanes/rails-adoption/tracker.toml"
+status = "active"
+owner = "core-maintainers"

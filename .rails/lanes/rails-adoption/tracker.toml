@@ -1,0 +1,28 @@
+schema_version = "1.0"
+
+id = "rails-adoption"
+name = "Rails adoption"
+status = "active"
+owner = "core-maintainers"
+
+objective = """
+Adopt the `.rails/` durable framework footprint and establish first artifact graph.
+"""
+
+end_state = [
+  "Core Rails directories and templates exist.",
+  "Initial proposal/spec/ADR artifacts are indexed.",
+]
+
+[[work_item]]
+id = "rails-adoption-001"
+status = "ready"
+proposal = "HL7V2-PROP-0001"
+spec = "HL7V2-SPEC-0001"
+adr = "HL7V2-ADR-0001"
+implementation_plan = ".rails/lanes/rails-adoption/implementation-plan.md"
+blocks = []
+blocked_by = []
+proof = [
+  "git diff --check",
+]

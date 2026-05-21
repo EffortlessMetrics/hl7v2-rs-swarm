@@ -1,0 +1,7 @@
+schema_version = "1.0"
+
+id = "<policy-reference-id>"
+name = "<name>"
+owner = "<owner>"
+ledger_path = "<path-to-live-ledger>"
+notes = "Reference only; do not duplicate policy content here."
