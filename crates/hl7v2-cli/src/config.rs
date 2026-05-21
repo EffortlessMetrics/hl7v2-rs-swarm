@@ -6,7 +6,6 @@
 //! - Environment variable overrides
 
 use serde::{Deserialize, Serialize};
-use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Root configuration structure
@@ -90,15 +89,7 @@ impl Default for LogConfig {
 /// Load configuration from a file
 #[allow(dead_code)]
 pub fn load_config(path: impl AsRef<Path>) -> Result<Config, Box<dyn std::error::Error>> {
-    let path_ref = path.as_ref();
-    let content = fs::read_to_string(path_ref)?;
-    let config: Config = if path_ref.extension().and_then(|s| s.to_str()) == Some("yaml") {
-        serde_yaml::from_str(&content)?
-    } else {
-        toml::from_str(&content)?
-    };
-
-    Ok(config)
+    config_loader::load_config(path)
 }
 
 /// Apply environment variable overrides to configuration
@@ -111,19 +102,82 @@ fn apply_env_overrides_with(
     config: &mut Config,
     mut var: impl FnMut(&str) -> Result<String, std::env::VarError>,
 ) {
-    if let Ok(host) = var("HL7_HOST") {
-        config.server.host = host;
+    env_overrides::apply_env_overrides_with(config, &mut var);
+}
+
+mod config_loader {
+    use super::Config;
+    use std::fs;
+    use std::path::Path;
+
+    pub(super) fn load_config(
+        path: impl AsRef<Path>,
+    ) -> Result<Config, Box<dyn std::error::Error>> {
+        let path_ref = path.as_ref();
+        let content = fs::read_to_string(path_ref)?;
+        let config = parse_by_extension(path_ref, &content)?;
+
+        Ok(config)
     }
-    if let Ok(port_str) = var("HL7_PORT")
-        && let Ok(port) = port_str.parse::<u16>()
-    {
-        config.server.port = port;
+
+    fn parse_by_extension(path: &Path, content: &str) -> Result<Config, Box<dyn std::error::Error>> {
+        if path.extension().and_then(|s| s.to_str()) == Some("yaml") {
+            Ok(serde_yaml::from_str(content)?)
+        } else {
+            Ok(toml::from_str(content)?)
+        }
     }
-    if let Ok(api_key) = var("HL7_API_KEY") {
-        config.server.api_key = Some(api_key);
+}
+
+mod env_overrides {
+    use super::Config;
+
+    pub(super) fn apply_env_overrides_with(
+        config: &mut Config,
+        var: &mut impl FnMut(&str) -> Result<String, std::env::VarError>,
+    ) {
+        apply_host_override(config, var);
+        apply_port_override(config, var);
+        apply_api_key_override(config, var);
+        apply_log_level_override(config, var);
     }
-    if let Ok(log_level) = var("HL7_LOG_LEVEL") {
-        config.logging.level = log_level;
+
+    fn apply_host_override(
+        config: &mut Config,
+        var: &mut impl FnMut(&str) -> Result<String, std::env::VarError>,
+    ) {
+        if let Ok(host) = var("HL7_HOST") {
+            config.server.host = host;
+        }
+    }
+
+    fn apply_port_override(
+        config: &mut Config,
+        var: &mut impl FnMut(&str) -> Result<String, std::env::VarError>,
+    ) {
+        if let Ok(port_str) = var("HL7_PORT")
+            && let Ok(port) = port_str.parse::<u16>()
+        {
+            config.server.port = port;
+        }
+    }
+
+    fn apply_api_key_override(
+        config: &mut Config,
+        var: &mut impl FnMut(&str) -> Result<String, std::env::VarError>,
+    ) {
+        if let Ok(api_key) = var("HL7_API_KEY") {
+            config.server.api_key = Some(api_key);
+        }
+    }
+
+    fn apply_log_level_override(
+        config: &mut Config,
+        var: &mut impl FnMut(&str) -> Result<String, std::env::VarError>,
+    ) {
+        if let Ok(log_level) = var("HL7_LOG_LEVEL") {
+            config.logging.level = log_level;
+        }
     }
 }
 
@@ -133,8 +187,7 @@ mod tests {
         CliConfig, Config, LogConfig, ServerConfig, apply_env_overrides, apply_env_overrides_with,
         load_config,
     };
-    use std::fs;
-
+    
     #[test]
     fn config_example_matches_loader_shape() {
         let config: Config = toml::from_str(include_str!("../../../config.example.toml"))
