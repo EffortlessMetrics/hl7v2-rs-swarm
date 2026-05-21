@@ -12,6 +12,8 @@ use std::process::{Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
 
+mod publish_flow;
+
 pub(crate) const PRIMARY_RUST_PRODUCT_CRATES: &[&str] = &["hl7v2", "hl7v2-server", "hl7v2-cli"];
 pub(crate) const BINDING_BACKEND_CRATES: &[&str] = &["hl7v2-python"];
 pub(crate) const EXCLUDED_PUBLISHABLE_WORKSPACE_PACKAGES: &[&str] = &["xtask", "hl7v2-examples"];
@@ -67,34 +69,18 @@ pub(crate) fn publish(
     retry_attempts: u32,
     retry_delay_secs: u64,
 ) -> Result<()> {
-    if !yes {
-        return Err(anyhow!(
-            "Refusing to publish without --yes. Run `cargo run -p xtask -- publish-plan` first."
-        ));
-    }
+    publish_flow::require_confirmation(yes)?;
 
     let crates = publish_order(from.as_deref())?;
-    if env::var_os("CARGO_REGISTRY_TOKEN").is_none() {
-        println!(
-            "Warning: CARGO_REGISTRY_TOKEN is not set; cargo publish will use local cargo credentials if available."
-        );
-    }
+    publish_flow::warn_if_registry_token_missing();
+    publish_flow::announce_start(crates.len());
 
-    println!("🚢 Publishing {} crates to crates.io...", crates.len());
     for (index, crate_name) in crates.iter().enumerate() {
         publish_crate(crate_name, retry_attempts, retry_delay_secs)?;
-        let has_next = index
-            .checked_add(1)
-            .is_some_and(|next_index| next_index < crates.len());
-        if has_next && retry_delay_secs > 0 {
-            println!(
-                "Waiting {retry_delay_secs}s for crates.io index propagation before continuing..."
-            );
-            sleep(Duration::from_secs(retry_delay_secs));
-        }
+        publish_flow::pause_for_index_propagation(index, crates.len(), retry_delay_secs);
     }
 
-    println!("✅ Publish sequence complete!");
+    publish_flow::announce_complete();
     Ok(())
 }
 
