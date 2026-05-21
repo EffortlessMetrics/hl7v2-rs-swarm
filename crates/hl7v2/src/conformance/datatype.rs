@@ -43,6 +43,9 @@
 pub mod datetime;
 
 pub use datetime as hl7v2_datetime;
+
+mod email;
+
 use regex::Regex;
 
 /// Error type for data type validation
@@ -398,25 +401,7 @@ pub fn is_phone_number(value: &str) -> bool {
 
 /// Check if value is a valid email address (basic validation)
 pub fn is_email(value: &str) -> bool {
-    // Basic email validation - contains @ and has characters before and after
-    let Some((local_part, domain_part)) = value.split_once('@') else {
-        return false;
-    };
-    if domain_part.contains('@') {
-        return false;
-    }
-
-    // Check that both parts are non-empty
-    if local_part.is_empty() || domain_part.is_empty() {
-        return false;
-    }
-
-    // Check that domain contains at least one dot
-    if !domain_part.contains('.') {
-        return false;
-    }
-
-    true
+    email::is_basic_email(value)
 }
 
 /// Check if value is a valid SSN (Social Security Number) format
