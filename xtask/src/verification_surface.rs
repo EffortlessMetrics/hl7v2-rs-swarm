@@ -454,89 +454,117 @@ fn validate_pr_evidence_packet(
 }
 
 fn render_pr_evidence_markdown(packet: &Value) -> String {
-    let summary = packet.get("summary").and_then(Value::as_object);
-    let mut out = String::new();
-    out.push_str("# PR Evidence Summary\n\n");
-    out.push_str("## Fast Gate\n\n");
-    out.push_str(&format!(
-        "- status: `{}`\n",
-        string_field(packet, "status", "unknown")
-    ));
-    out.push_str(&format!(
-        "- root: `{}`\n",
-        md_escape(string_field(packet, "root", DEFAULT_ROOT))
-    ));
-    out.push_str(&format!(
-        "- base: `{}`\n",
-        md_escape(string_field(packet, "base", DEFAULT_BASE))
-    ));
-    out.push_str(&format!(
-        "- head: `{}`\n",
-        md_escape(string_field(packet, "head", DEFAULT_HEAD))
-    ));
-    out.push_str(&format!(
-        "- changed files: {}\n\n",
-        count_field(summary, "changed_files")
-    ));
-    out.push_str("## RIPR\n\n");
-    out.push_str(&format!(
-        "- changed-line comments: {}\n",
-        count_field(summary, "comments")
-    ));
-    out.push_str(&format!(
-        "- summary-only guidance: {}\n",
-        count_field(summary, "summary_only")
-    ));
-    out.push_str(&format!(
-        "- suppressed guidance: {}\n",
-        count_field(summary, "suppressed")
-    ));
-    out.push_str(&format!(
-        "- weakly_exposed: {}\n",
-        count_field(summary, "weakly_exposed")
-    ));
-    out.push_str(&format!(
-        "- reachable_unrevealed: {}\n",
-        count_field(summary, "reachable_unrevealed")
-    ));
-    out.push_str(&format!(
-        "- no_static_path: {}\n",
-        count_field(summary, "no_static_path")
-    ));
-    out.push_str(&format!(
-        "- severe gaps: {}\n\n",
-        count_field(summary, "severe_gaps")
-    ));
-    out.push_str("## Targeted Mutation\n\n");
-    out.push_str(&format!(
-        "- requires_targeted_mutation: {}\n",
-        bool_field(summary, "requires_targeted_mutation")
-    ));
-    out.push_str(&format!(
-        "- routing_reason: `{}`\n\n",
-        summary_string_or_null(summary, "routing_reason")
-    ));
-    out.push_str("## Artifacts\n\n");
-    out.push_str("| Artifact | Path | Scope | Available |\n");
-    out.push_str("| --- | --- | --- | --- |\n");
-    if let Some(artifacts) = packet.get("artifacts").and_then(Value::as_array) {
-        for artifact in artifacts {
-            out.push_str(&format!(
-                "| {} | `{}` | {} | {} |\n",
-                md_escape(string_field(artifact, "label", "artifact")),
-                md_escape(string_field(artifact, "path", "unknown")),
-                md_escape(string_field(artifact, "scope", "unknown")),
-                artifact
-                    .get("available")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(false)
-            ));
+    pr_evidence_markdown::render(packet)
+}
+
+mod pr_evidence_markdown {
+    use super::*;
+
+    pub(super) fn render(packet: &Value) -> String {
+        let summary = packet.get("summary").and_then(Value::as_object);
+        let mut out = String::new();
+        out.push_str("# PR Evidence Summary\n\n");
+        render_fast_gate_section(&mut out, packet, summary);
+        render_ripr_section(&mut out, summary);
+        render_targeted_mutation_section(&mut out, summary);
+        render_artifacts_section(&mut out, packet);
+        out.push_str(
+            "\n_This packet is diff-scoped and advisory. Do not copy it into public badge state._\n",
+        );
+        out
+    }
+
+    fn render_fast_gate_section(
+        out: &mut String,
+        packet: &Value,
+        summary: Option<&Map<String, Value>>,
+    ) {
+        out.push_str("## Fast Gate\n\n");
+        out.push_str(&format!(
+            "- status: `{}`\n",
+            string_field(packet, "status", "unknown")
+        ));
+        out.push_str(&format!(
+            "- root: `{}`\n",
+            md_escape(string_field(packet, "root", DEFAULT_ROOT))
+        ));
+        out.push_str(&format!(
+            "- base: `{}`\n",
+            md_escape(string_field(packet, "base", DEFAULT_BASE))
+        ));
+        out.push_str(&format!(
+            "- head: `{}`\n",
+            md_escape(string_field(packet, "head", DEFAULT_HEAD))
+        ));
+        out.push_str(&format!(
+            "- changed files: {}\n\n",
+            count_field(summary, "changed_files")
+        ));
+    }
+
+    fn render_ripr_section(out: &mut String, summary: Option<&Map<String, Value>>) {
+        out.push_str("## RIPR\n\n");
+        out.push_str(&format!(
+            "- changed-line comments: {}\n",
+            count_field(summary, "comments")
+        ));
+        out.push_str(&format!(
+            "- summary-only guidance: {}\n",
+            count_field(summary, "summary_only")
+        ));
+        out.push_str(&format!(
+            "- suppressed guidance: {}\n",
+            count_field(summary, "suppressed")
+        ));
+        out.push_str(&format!(
+            "- weakly_exposed: {}\n",
+            count_field(summary, "weakly_exposed")
+        ));
+        out.push_str(&format!(
+            "- reachable_unrevealed: {}\n",
+            count_field(summary, "reachable_unrevealed")
+        ));
+        out.push_str(&format!(
+            "- no_static_path: {}\n",
+            count_field(summary, "no_static_path")
+        ));
+        out.push_str(&format!(
+            "- severe gaps: {}\n\n",
+            count_field(summary, "severe_gaps")
+        ));
+    }
+
+    fn render_targeted_mutation_section(out: &mut String, summary: Option<&Map<String, Value>>) {
+        out.push_str("## Targeted Mutation\n\n");
+        out.push_str(&format!(
+            "- requires_targeted_mutation: {}\n",
+            bool_field(summary, "requires_targeted_mutation")
+        ));
+        out.push_str(&format!(
+            "- routing_reason: `{}`\n\n",
+            summary_string_or_null(summary, "routing_reason")
+        ));
+    }
+
+    fn render_artifacts_section(out: &mut String, packet: &Value) {
+        out.push_str("## Artifacts\n\n");
+        out.push_str("| Artifact | Path | Scope | Available |\n");
+        out.push_str("| --- | --- | --- | --- |\n");
+        if let Some(artifacts) = packet.get("artifacts").and_then(Value::as_array) {
+            for artifact in artifacts {
+                out.push_str(&format!(
+                    "| {} | `{}` | {} | {} |\n",
+                    md_escape(string_field(artifact, "label", "artifact")),
+                    md_escape(string_field(artifact, "path", "unknown")),
+                    md_escape(string_field(artifact, "scope", "unknown")),
+                    artifact
+                        .get("available")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false)
+                ));
+            }
         }
     }
-    out.push_str(
-        "\n_This packet is diff-scoped and advisory. Do not copy it into public badge state._\n",
-    );
-    out
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
