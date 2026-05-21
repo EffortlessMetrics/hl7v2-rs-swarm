@@ -1,0 +1,46 @@
+schema_version = "1.0"
+
+repo = "hl7v2-rs-swarm"
+namespace = ".hl7v2-rs-swarm-spec"
+
+[conventions]
+proposal_prefix = "HLSWARM-PROP"
+spec_prefix = "HLSWARM-SPEC"
+adr_prefix = "HLSWARM-ADR"
+lane_prefix = "HLSWARM-LANE"
+
+[external_namespaces]
+codex = ".codex"
+speckit = ".spec"
+claude = ".claude"
+jules = ".jules"
+
+[[artifact]]
+id = "HLSWARM-PROP-0001"
+kind = "proposal"
+path = ".hl7v2-rs-swarm-spec/proposals/HLSWARM-PROP-0001-repo-native-spec-knowledge-base.md"
+status = "accepted"
+owner = "spec-system"
+
+[[artifact]]
+id = "HLSWARM-SPEC-0001"
+kind = "spec"
+path = ".hl7v2-rs-swarm-spec/specs/HLSWARM-SPEC-0001-repo-native-spec-rails.md"
+status = "accepted"
+owner = "spec-system"
+linked_proposal = "HLSWARM-PROP-0001"
+
+[[artifact]]
+id = "HLSWARM-ADR-0001"
+kind = "adr"
+path = ".hl7v2-rs-swarm-spec/adr/HLSWARM-ADR-0001-repo-owned-spec-namespace.md"
+status = "accepted"
+owner = "spec-system"
+linked_specs = ["HLSWARM-SPEC-0001"]
+
+[[lane]]
+id = "spec-system"
+name = "Repo-native spec system"
+path = ".hl7v2-rs-swarm-spec/lanes/spec-system/tracker.toml"
+status = "active"
+owner = "architecture"

@@ -1,0 +1,28 @@
+schema_version = "1.0"
+
+id = "spec-system"
+name = "Repo-native spec system"
+status = "active"
+owner = "architecture"
+
+objective = "Install durable repo-owned spec rails under .hl7v2-rs-swarm-spec/."
+
+end_state = [
+  "Repo-native durable rails exist and are documented.",
+  "Proposals/specs/ADRs/lanes are index-linked.",
+  "External tool namespaces are awareness-only.",
+]
+
+[[work_item]]
+id = "namespace-doctrine"
+status = "done"
+proposal = "HLSWARM-PROP-0001"
+spec = "HLSWARM-SPEC-0001"
+proof = ["git diff --check"]
+
+[[work_item]]
+id = "templates-and-governance"
+status = "ready"
+proposal = "HLSWARM-PROP-0001"
+spec = "HLSWARM-SPEC-0001"
+proof = ["git diff --check"]

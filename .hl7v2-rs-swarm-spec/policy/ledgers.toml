@@ -1,0 +1,8 @@
+schema_version = "1.0"
+
+[[ledger]]
+id = "ci-lane-whitelist"
+path = "policy/ci-lane-whitelist.toml"
+kind = "ci_lane_policy"
+owned_by = "engineering"
+linked_specs = ["HLSWARM-SPEC-0001"]
