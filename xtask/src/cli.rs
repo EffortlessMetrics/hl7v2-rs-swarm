@@ -166,9 +166,13 @@ pub(crate) enum Commands {
         /// GitHub repository owner/name to inspect
         #[arg(long, default_value = "EffortlessMetrics/hl7v2-rs-swarm")]
         repo: String,
-        /// Repository secret expected to hold a runner-read token for the router
-        #[arg(long, default_value = "EM_RUNNER_READ_TOKEN")]
-        runner_read_token_secret: String,
+        /// Local environment variable holding the exact runner-read token to test
+        #[arg(
+            long = "runner-read-token-env",
+            alias = "runner-read-token-secret",
+            default_value = "EM_RUNNER_READ_TOKEN"
+        )]
+        runner_read_token_env: String,
         /// Treat missing runner access/setup as an expected blocked cutover state
         #[arg(long)]
         allow_unavailable: bool,

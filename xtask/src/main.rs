@@ -85,9 +85,9 @@ fn main() -> Result<()> {
         } => check_swarm_branch_protection(&repo, &branch, allow_unprotected)?,
         Commands::CheckSwarmRunnerSetup {
             repo,
-            runner_read_token_secret,
+            runner_read_token_env,
             allow_unavailable,
-        } => check_swarm_runner_setup(&repo, &runner_read_token_secret, allow_unavailable)?,
+        } => check_swarm_runner_setup(&repo, &runner_read_token_env, allow_unavailable)?,
         Commands::CheckEvidenceParity => check_evidence_parity()?,
         Commands::CheckEvidenceParityAcceptance { include_python } => {
             check_evidence_parity_acceptance(include_python)?;
@@ -1052,6 +1052,24 @@ fn run_command_capture_owned(cmd: &str, args: &[String]) -> Result<String> {
 
 fn run_command_capture_status(cmd: &str, args: &[String]) -> Result<(Option<i32>, String, String)> {
     let output = Command::new(cmd).args(args).output()?;
+    Ok((
+        output.status.code(),
+        String::from_utf8(output.stdout)?,
+        String::from_utf8(output.stderr)?,
+    ))
+}
+
+fn run_command_capture_status_with_env(
+    cmd: &str,
+    args: &[String],
+    envs: &[(&str, &str)],
+) -> Result<(Option<i32>, String, String)> {
+    let mut command = Command::new(cmd);
+    command.args(args);
+    for (key, value) in envs {
+        command.env(key, value);
+    }
+    let output = command.output()?;
     Ok((
         output.status.code(),
         String::from_utf8(output.stdout)?,
@@ -10523,22 +10541,36 @@ const SWARM_CX53_LABELS: &[&str] = &["em-ci", "cx53", "rust-small", "trusted-pr"
 
 fn check_swarm_runner_setup(
     repo: &str,
-    runner_read_token_secret: &str,
+    runner_read_token_env: &str,
     allow_unavailable: bool,
 ) -> Result<()> {
-    println!("🔎 Checking swarm runner setup for {repo}...");
-    let mut errors = Vec::new();
-    errors.extend(check_swarm_runner_secret_errors(
-        repo,
-        runner_read_token_secret,
-    )?);
-
+    println!("🔎 Checking swarm runner discovery for {repo}...");
     let api_path = format!("repos/{repo}/actions/runners?per_page=100");
     let args = vec!["api".to_string(), api_path];
-    let (code, stdout, stderr) = run_command_capture_status("gh", &args)?;
+    let local_runner_token = env::var(runner_read_token_env)
+        .ok()
+        .filter(|value| !value.trim().is_empty());
+    let auth_source = if local_runner_token.is_some() {
+        format!("local {runner_read_token_env} environment token")
+    } else {
+        "current gh authentication".to_string()
+    };
+    let (code, stdout, stderr) = if let Some(token) = local_runner_token.as_deref() {
+        println!("Using local {runner_read_token_env} for exact runner-list API discovery.");
+        run_command_capture_status_with_env("gh", &args, &[("GH_TOKEN", token)])?
+    } else {
+        println!(
+            "Local {runner_read_token_env} is not set; using current gh authentication for an advisory runner-list API check."
+        );
+        println!(
+            "This does not prove whether the Actions org/repo secret is present; use the workflow route log or set {runner_read_token_env} locally for exact-token proof."
+        );
+        run_command_capture_status("gh", &args)?
+    };
+    let mut errors = Vec::new();
     if code != Some(0) {
         errors.push(format!(
-            "cannot read repository runners for {repo}; gh exited with {code:?}\nstdout:\n{stdout}\nstderr:\n{stderr}"
+            "cannot read repository runners for {repo} using {auth_source}; gh exited with {code:?}\nstdout:\n{stdout}\nstderr:\n{stderr}"
         ));
         finish_swarm_runner_setup_check(errors, allow_unavailable)?;
         return Ok(());
@@ -10555,7 +10587,7 @@ fn check_swarm_runner_setup(
         .and_then(serde_json::Value::as_u64)
         .unwrap_or_default();
     println!(
-        "✅ swarm runner setup exposes {runner_read_token_secret} plus CPX42/CX43/CX53 routes across {total} runner(s)"
+        "✅ swarm runner discovery sees CPX42/CX43/CX53 routes across {total} runner(s) using {auth_source}"
     );
     Ok(())
 }
@@ -10574,43 +10606,11 @@ fn finish_swarm_runner_setup_check(errors: Vec<String>, allow_unavailable: bool)
             eprintln!("❌ {error}");
         }
         return Err(anyhow!(
-            "swarm runner setup must expose the runner-read token secret plus online CPX42, CX43, and CX53 runners"
+            "swarm runner discovery must read the repository runner-list API and expose online CPX42, CX43, and CX53 runners"
         ));
     }
 
     Ok(true)
-}
-
-fn check_swarm_runner_secret_errors(repo: &str, secret_name: &str) -> Result<Vec<String>> {
-    let api_path = format!("repos/{repo}/actions/secrets/{secret_name}");
-    let args = vec!["api".to_string(), api_path];
-    let (code, stdout, stderr) = run_command_capture_status("gh", &args)?;
-    if code != Some(0) {
-        return Ok(vec![format!(
-            "repository secret {secret_name} is not visible for {repo}; gh exited with {code:?}\nstdout:\n{stdout}\nstderr:\n{stderr}"
-        )]);
-    }
-
-    let value: serde_json::Value = serde_json::from_str(&stdout)
-        .map_err(|e| anyhow!("cannot parse secret JSON for {repo}/{secret_name}: {e}"))?;
-    Ok(swarm_runner_secret_response_errors(&value, secret_name))
-}
-
-fn swarm_runner_secret_response_errors(
-    value: &serde_json::Value,
-    expected_secret_name: &str,
-) -> Vec<String> {
-    let actual_name = value
-        .get("name")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or_default();
-    if actual_name == expected_secret_name {
-        Vec::new()
-    } else {
-        vec![format!(
-            "repository secret lookup returned name `{actual_name}`, expected `{expected_secret_name}`"
-        )]
-    }
 }
 
 fn swarm_runner_setup_errors(value: &serde_json::Value) -> Vec<String> {
@@ -11917,10 +11917,10 @@ M\tdocs/ops/swarm-development.md
         let cli = Cli::try_parse_from(["xtask", "check-swarm-runner-setup"])?;
         match cli.command {
             Commands::CheckSwarmRunnerSetup {
-                runner_read_token_secret,
+                runner_read_token_env,
                 ..
             } => {
-                if runner_read_token_secret == "EM_RUNNER_READ_TOKEN" {
+                if runner_read_token_env == "EM_RUNNER_READ_TOKEN" {
                     Ok(())
                 } else {
                     Err(anyhow!(
@@ -11937,19 +11937,19 @@ M\tdocs/ops/swarm-development.md
         let cli = Cli::try_parse_from([
             "xtask",
             "check-swarm-runner-setup",
-            "--runner-read-token-secret",
+            "--runner-read-token-env",
             "ALT_RUNNER_TOKEN",
         ])?;
         match cli.command {
             Commands::CheckSwarmRunnerSetup {
-                runner_read_token_secret,
+                runner_read_token_env,
                 ..
             } => {
-                if runner_read_token_secret == "ALT_RUNNER_TOKEN" {
+                if runner_read_token_env == "ALT_RUNNER_TOKEN" {
                     Ok(())
                 } else {
                     Err(anyhow!(
-                        "check-swarm-runner-setup should preserve secret override"
+                        "check-swarm-runner-setup should preserve token env override"
                     ))
                 }
             }
@@ -11958,37 +11958,27 @@ M\tdocs/ops/swarm-development.md
     }
 
     #[test]
-    fn swarm_runner_secret_response_accepts_expected_name() -> Result<()> {
-        let value: serde_json::Value = serde_json::json!({
-            "name": "EM_RUNNER_READ_TOKEN",
-            "created_at": "2026-05-20T00:00:00Z",
-            "updated_at": "2026-05-20T00:00:00Z"
-        });
-        let errors = swarm_runner_secret_response_errors(&value, "EM_RUNNER_READ_TOKEN");
-        if errors.is_empty() {
-            Ok(())
-        } else {
-            Err(anyhow!(
-                "expected EM_RUNNER_READ_TOKEN secret should be accepted: {errors:?}"
-            ))
-        }
-    }
-
-    #[test]
-    fn swarm_runner_secret_response_rejects_wrong_name() -> Result<()> {
-        let value: serde_json::Value = serde_json::json!({
-            "name": "OTHER_SECRET"
-        });
-        let errors = swarm_runner_secret_response_errors(&value, "EM_RUNNER_READ_TOKEN");
-        if errors
-            .iter()
-            .any(|error| error.contains("expected `EM_RUNNER_READ_TOKEN`"))
-        {
-            Ok(())
-        } else {
-            Err(anyhow!(
-                "wrong runner secret name should be rejected: {errors:?}"
-            ))
+    fn check_swarm_runner_setup_accepts_legacy_secret_override_alias() -> Result<()> {
+        let cli = Cli::try_parse_from([
+            "xtask",
+            "check-swarm-runner-setup",
+            "--runner-read-token-secret",
+            "ALT_RUNNER_TOKEN",
+        ])?;
+        match cli.command {
+            Commands::CheckSwarmRunnerSetup {
+                runner_read_token_env,
+                ..
+            } => {
+                if runner_read_token_env == "ALT_RUNNER_TOKEN" {
+                    Ok(())
+                } else {
+                    Err(anyhow!(
+                        "check-swarm-runner-setup should preserve legacy token secret alias"
+                    ))
+                }
+            }
+            _ => Err(anyhow!("expected check-swarm-runner-setup command")),
         }
     }
 
