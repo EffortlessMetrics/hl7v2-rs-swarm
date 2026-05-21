@@ -377,8 +377,14 @@ CPX42 runner, but the first implementation attempt failed before the Rust gate
 because the selected CPX42 runner did not have the local Docker image
 `em-ci-rust:1.95`. The CPX42 implementation path now uses the pinned Rust
 toolchain action directly on the self-hosted runner, with scratch directories
-created before the toolchain action because it honors `TMPDIR`. CX43 and CX53
-keep the existing local-image Docker execution pattern.
+created before the toolchain action because it honors `TMPDIR`.
+
+PR #74 added manual `workflow_dispatch` skip inputs for fallback proof runs. The
+first CPX42-skip proof selected CX53, proving CX53 discovery and scheduling,
+but then failed because the CX53 local image also lacked `cargo`/`rustc` on
+`PATH`. CX43 and CX53 now use the same pinned Rust 1.95 direct-toolchain pattern
+as CPX42 while retaining their own runner labels, build-job caps, scratch
+directories, disk guards, and cleanup.
 
 The blocked runner setup verifier now treats local `EM_RUNNER_READ_TOKEN` as an
 optional exact-token check. If the environment variable is not set locally, it
