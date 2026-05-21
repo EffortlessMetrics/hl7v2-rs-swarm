@@ -34,6 +34,7 @@
 mod batch;
 mod charset;
 mod message;
+mod parse_pipeline;
 mod segment;
 
 pub use batch::{parse_batch, parse_file_batch};

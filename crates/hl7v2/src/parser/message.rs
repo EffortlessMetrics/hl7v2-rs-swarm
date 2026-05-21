@@ -6,10 +6,9 @@
     reason = "parser entry points preserve existing error behavior while parser responsibilities are split into SRP submodules"
 )]
 
-use crate::model::{Delims, Error, Message};
+use crate::model::{Error, Message};
 
-use super::charset::extract_charsets;
-use super::segment::parse_segment;
+use super::parse_pipeline::parse_from_bytes;
 
 /// Parse HL7 v2 message from bytes.
 ///
@@ -33,47 +32,7 @@ use super::segment::parse_segment;
 /// assert_eq!(message.segments.len(), 2);
 /// ```
 pub fn parse(bytes: &[u8]) -> Result<Message, Error> {
-    let text = std::str::from_utf8(bytes).map_err(|_| Error::InvalidCharset)?;
-    let lines = segment_lines(text);
-
-    if lines.is_empty() {
-        std::hint::cold_path();
-        return Err(Error::InvalidSegmentId);
-    }
-
-    let Some(first_line) = lines.first() else {
-        std::hint::cold_path();
-        return Err(Error::InvalidSegmentId);
-    };
-
-    if !first_line.starts_with("MSH") {
-        std::hint::cold_path();
-        return Err(Error::InvalidSegmentId);
-    }
-
-    let delims = Delims::parse_from_msh(first_line).map_err(|e| Error::ParseError {
-        segment_id: "MSH".to_string(),
-        field_index: 0,
-        source: Box::new(e),
-    })?;
-
-    let mut segments = Vec::new();
-    for line in lines {
-        let segment = parse_segment(line, &delims).map_err(|e| Error::ParseError {
-            segment_id: line.get(..3).unwrap_or(line).to_string(),
-            field_index: 0,
-            source: Box::new(e),
-        })?;
-        segments.push(segment);
-    }
-
-    let charsets = extract_charsets(&segments);
-
-    Ok(Message {
-        delims,
-        segments,
-        charsets,
-    })
+    parse_from_bytes(bytes)
 }
 
 /// Parse HL7 v2 message from MLLP framed bytes.
