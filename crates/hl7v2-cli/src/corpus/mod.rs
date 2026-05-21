@@ -6,28 +6,18 @@
 
 mod profile_validation;
 mod render;
+mod schema_guard;
 
 use self::profile_validation::fingerprint_validation_issue_counts;
 pub(super) use self::render::{
     format_corpus_diff, format_corpus_fingerprint, format_corpus_summary,
 };
+use self::schema_guard::ensure_schema_format_support;
 use super::{OutputOptions, ReportFormat};
 use hl7v2::synthetic::corpus::{
     diff_corpus_fingerprints, diff_corpus_paths, fingerprint_corpus_path, summarize_corpus_path,
 };
 use std::path::PathBuf;
-
-fn ensure_schema_format_support(
-    schema_version: u8,
-    format: &ReportFormat,
-    error_message: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if schema_version == 2 && *format == ReportFormat::Text {
-        return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, error_message).into());
-    }
-
-    Ok(())
-}
 
 pub(super) fn summarize_command(
     path: &PathBuf,
