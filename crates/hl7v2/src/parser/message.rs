@@ -6,10 +6,7 @@
     reason = "parser entry points preserve existing error behavior while parser responsibilities are split into SRP submodules"
 )]
 
-use crate::model::{Delims, Error, Message};
-
-use super::charset::extract_charsets;
-use super::segment::parse_segment;
+use crate::model::{Error, Message};
 
 /// Parse HL7 v2 message from bytes.
 ///
@@ -33,47 +30,90 @@ use super::segment::parse_segment;
 /// assert_eq!(message.segments.len(), 2);
 /// ```
 pub fn parse(bytes: &[u8]) -> Result<Message, Error> {
-    let text = std::str::from_utf8(bytes).map_err(|_| Error::InvalidCharset)?;
+    let text = decode::utf8(bytes)?;
     let lines = segment_lines(text);
+    let first_line = validate::first_segment(&lines)?;
+    let delims = delimiters::from_msh(first_line)?;
+    let segments = segments::parse_all(&lines, &delims)?;
 
-    if lines.is_empty() {
-        std::hint::cold_path();
-        return Err(Error::InvalidSegmentId);
+    Ok(assemble::message(delims, segments))
+}
+
+mod decode {
+    use crate::model::Error;
+
+    pub(super) fn utf8(bytes: &[u8]) -> Result<&str, Error> {
+        std::str::from_utf8(bytes).map_err(|_| Error::InvalidCharset)
     }
+}
 
-    let Some(first_line) = lines.first() else {
-        std::hint::cold_path();
-        return Err(Error::InvalidSegmentId);
-    };
+mod validate {
+    use crate::model::Error;
 
-    if !first_line.starts_with("MSH") {
-        std::hint::cold_path();
-        return Err(Error::InvalidSegmentId);
+    pub(super) fn first_segment<'a>(lines: &'a [&str]) -> Result<&'a str, Error> {
+        if lines.is_empty() {
+            std::hint::cold_path();
+            return Err(Error::InvalidSegmentId);
+        }
+
+        let Some(first_line) = lines.first() else {
+            std::hint::cold_path();
+            return Err(Error::InvalidSegmentId);
+        };
+
+        if !first_line.starts_with("MSH") {
+            std::hint::cold_path();
+            return Err(Error::InvalidSegmentId);
+        }
+
+        Ok(first_line)
     }
+}
 
-    let delims = Delims::parse_from_msh(first_line).map_err(|e| Error::ParseError {
-        segment_id: "MSH".to_string(),
-        field_index: 0,
-        source: Box::new(e),
-    })?;
+mod delimiters {
+    use crate::model::{Delims, Error};
 
-    let mut segments = Vec::new();
-    for line in lines {
-        let segment = parse_segment(line, &delims).map_err(|e| Error::ParseError {
-            segment_id: line.get(..3).unwrap_or(line).to_string(),
+    pub(super) fn from_msh(first_line: &str) -> Result<Delims, Error> {
+        Delims::parse_from_msh(first_line).map_err(|e| Error::ParseError {
+            segment_id: "MSH".to_string(),
             field_index: 0,
             source: Box::new(e),
-        })?;
-        segments.push(segment);
+        })
     }
+}
 
-    let charsets = extract_charsets(&segments);
+mod segments {
+    use crate::model::{Delims, Error, Segment};
+    use crate::parser::segment::parse_segment;
 
-    Ok(Message {
-        delims,
-        segments,
-        charsets,
-    })
+    pub(super) fn parse_all(lines: &[&str], delims: &Delims) -> Result<Vec<Segment>, Error> {
+        let mut segments = Vec::with_capacity(lines.len());
+        for line in lines {
+            let segment = parse_segment(line, delims).map_err(|e| Error::ParseError {
+                segment_id: line.get(..3).unwrap_or(line).to_string(),
+                field_index: 0,
+                source: Box::new(e),
+            })?;
+            segments.push(segment);
+        }
+
+        Ok(segments)
+    }
+}
+
+mod assemble {
+    use crate::model::{Delims, Message, Segment};
+    use crate::parser::charset::extract_charsets;
+
+    pub(super) fn message(delims: Delims, segments: Vec<Segment>) -> Message {
+        let charsets = extract_charsets(&segments);
+
+        Message {
+            delims,
+            segments,
+            charsets,
+        }
+    }
 }
 
 /// Parse HL7 v2 message from MLLP framed bytes.
