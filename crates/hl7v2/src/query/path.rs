@@ -170,122 +170,146 @@ impl std::fmt::Display for Path {
 /// ```
 pub fn parse_path(s: &str) -> Result<Path, PathError> {
     let s = s.trim();
-
-    if s.is_empty() {
-        return Err(PathError::InvalidFormat("Path cannot be empty".to_string()));
-    }
-
-    let mut parts = s.split('.');
-    let segment_part = parts.next().unwrap_or_default();
-    let field_part = parts.next().ok_or_else(|| {
-        PathError::InvalidFormat(format!("Path must have at least SEGMENT.FIELD, got: {s}"))
-    })?;
-    let component_part = parts.next();
-    let subcomponent_part = parts.next();
-    if parts.next().is_some() {
-        return Err(PathError::InvalidFormat(format!(
-            "Path has too many components, got: {s}"
-        )));
-    }
-
-    // Parse segment ID (must be 3 characters, start with letter, rest alphanumeric)
-    let segment = segment_part.to_uppercase();
-    if segment.len() != 3
-        || !segment.starts_with(|c: char| c.is_ascii_alphabetic())
-        || !segment.chars().all(|c| c.is_ascii_alphanumeric())
-    {
-        return Err(PathError::InvalidSegmentId(segment));
-    }
-
-    // Parse field number (may include repetition)
-    let (field, repetition) = parse_field_part(field_part)?;
-
-    let mut path = Path::new(&segment, field);
-    if let Some(rep) = repetition {
-        path = path.with_repetition(rep);
-    }
-
-    // Parse optional component
-    if let Some(component_part) = component_part {
-        let comp = component_part
-            .parse::<usize>()
-            .map_err(|_parse_err| PathError::InvalidComponentNumber(component_part.to_string()))?;
-
-        if comp == 0 {
-            return Err(PathError::InvalidComponentNumber(
-                "Component must be >= 1".to_string(),
-            ));
-        }
-
-        path = path.with_component(comp);
-    }
-
-    // Parse optional subcomponent
-    if let Some(subcomponent_part) = subcomponent_part {
-        let sub = subcomponent_part.parse::<usize>().map_err(|_parse_err| {
-            PathError::InvalidComponentNumber(subcomponent_part.to_string())
-        })?;
-
-        if sub == 0 {
-            return Err(PathError::InvalidComponentNumber(
-                "Subcomponent must be >= 1".to_string(),
-            ));
-        }
-
-        path = path.with_subcomponent(sub);
-    }
-
-    Ok(path)
+    parser::parse(s)
 }
 
-/// Parse a field part which may include repetition index
-/// Returns (field_number, optional_repetition)
-fn parse_field_part(s: &str) -> Result<(usize, Option<usize>), PathError> {
-    if s.contains('[') {
-        // Has repetition: "5[2]" or "5[1]"
-        let stripped = s.strip_suffix(']').ok_or_else(|| {
-            PathError::InvalidFormat(format!("Invalid field format, missing ']': {s}"))
+mod parser {
+    use super::{numbers, segment, Path, PathError};
+
+    pub(super) fn parse(s: &str) -> Result<Path, PathError> {
+        validate_non_empty(s)?;
+        let path_parts = split_path(s)?;
+        let segment = segment::parse(path_parts.segment_part)?;
+        let (field, repetition) = parse_field::parse(path_parts.field_part)?;
+        let mut path = build_path::base_path(&segment, field, repetition);
+
+        if let Some(component_part) = path_parts.component_part {
+            let comp = numbers::parse_component(component_part)?;
+            path = path.with_component(comp);
+        }
+
+        if let Some(subcomponent_part) = path_parts.subcomponent_part {
+            let sub = numbers::parse_subcomponent(subcomponent_part)?;
+            path = path.with_subcomponent(sub);
+        }
+
+        Ok(path)
+    }
+
+    fn validate_non_empty(s: &str) -> Result<(), PathError> {
+        if s.is_empty() {
+            return Err(PathError::InvalidFormat("Path cannot be empty".to_string()));
+        }
+        Ok(())
+    }
+
+    fn split_path(s: &str) -> Result<PathParts<'_>, PathError> {
+        let mut parts = s.split('.');
+        let segment_part = parts.next().unwrap_or_default();
+        let field_part = parts.next().ok_or_else(|| {
+            PathError::InvalidFormat(format!("Path must have at least SEGMENT.FIELD, got: {s}"))
         })?;
-        let Some((field_str, rep_str)) = stripped.split_once('[') else {
+        let component_part = parts.next();
+        let subcomponent_part = parts.next();
+        if parts.next().is_some() {
             return Err(PathError::InvalidFormat(format!(
-                "Invalid field format, missing '[': {s}"
+                "Path has too many components, got: {s}"
             )));
-        };
-
-        let field = field_str
-            .parse::<usize>()
-            .map_err(|_parse_err| PathError::InvalidFieldNumber(field_str.to_string()))?;
-
-        if field == 0 {
-            return Err(PathError::InvalidFieldNumber(
-                "Field must be >= 1".to_string(),
-            ));
         }
 
-        let rep = rep_str
-            .parse::<usize>()
-            .map_err(|_parse_err| PathError::InvalidRepetitionIndex(rep_str.to_string()))?;
+        Ok(PathParts {
+            segment_part,
+            field_part,
+            component_part,
+            subcomponent_part,
+        })
+    }
 
-        if rep == 0 {
-            return Err(PathError::InvalidRepetitionIndex(
-                "Repetition must be >= 1".to_string(),
-            ));
+    struct PathParts<'a> {
+        segment_part: &'a str,
+        field_part: &'a str,
+        component_part: Option<&'a str>,
+        subcomponent_part: Option<&'a str>,
+    }
+
+    mod parse_field {
+        use super::{numbers, PathError};
+
+        pub(super) fn parse(s: &str) -> Result<(usize, Option<usize>), PathError> {
+            if s.contains('[') {
+                let stripped = s.strip_suffix(']').ok_or_else(|| {
+                    PathError::InvalidFormat(format!("Invalid field format, missing ']': {s}"))
+                })?;
+                let Some((field_str, rep_str)) = stripped.split_once('[') else {
+                    return Err(PathError::InvalidFormat(format!(
+                        "Invalid field format, missing '[': {s}"
+                    )));
+                };
+                let field = numbers::parse_field(field_str)?;
+                let rep = numbers::parse_repetition(rep_str)?;
+                Ok((field, Some(rep)))
+            } else {
+                Ok((numbers::parse_field(s)?, None))
+            }
         }
+    }
 
-        Ok((field, Some(rep)))
-    } else {
-        // No repetition
-        let field = s
-            .parse::<usize>()
-            .map_err(|_parse_err| PathError::InvalidFieldNumber(s.to_string()))?;
+    mod build_path {
+        use super::Path;
 
-        if field == 0 {
-            return Err(PathError::InvalidFieldNumber(
-                "Field must be >= 1".to_string(),
-            ));
+        pub(super) fn base_path(segment: &str, field: usize, repetition: Option<usize>) -> Path {
+            let mut path = Path::new(segment, field);
+            if let Some(rep) = repetition {
+                path = path.with_repetition(rep);
+            }
+            path
         }
+    }
+}
 
-        Ok((field, None))
+mod segment {
+    use super::PathError;
+
+    pub(super) fn parse(segment_part: &str) -> Result<String, PathError> {
+        let segment = segment_part.to_uppercase();
+        if segment.len() != 3
+            || !segment.starts_with(|c: char| c.is_ascii_alphabetic())
+            || !segment.chars().all(|c| c.is_ascii_alphanumeric())
+        {
+            return Err(PathError::InvalidSegmentId(segment));
+        }
+        Ok(segment)
+    }
+}
+
+mod numbers {
+    use super::PathError;
+
+    pub(super) fn parse_field(raw: &str) -> Result<usize, PathError> {
+        parse_positive(raw, PathError::InvalidFieldNumber, "Field")
+    }
+
+    pub(super) fn parse_repetition(raw: &str) -> Result<usize, PathError> {
+        parse_positive(raw, PathError::InvalidRepetitionIndex, "Repetition")
+    }
+
+    pub(super) fn parse_component(raw: &str) -> Result<usize, PathError> {
+        parse_positive(raw, PathError::InvalidComponentNumber, "Component")
+    }
+
+    pub(super) fn parse_subcomponent(raw: &str) -> Result<usize, PathError> {
+        parse_positive(raw, PathError::InvalidComponentNumber, "Subcomponent")
+    }
+
+    fn parse_positive<F>(raw: &str, err: F, label: &str) -> Result<usize, PathError>
+    where
+        F: Fn(String) -> PathError,
+    {
+        let value = raw.parse::<usize>().map_err(|_parse_err| err(raw.to_string()))?;
+        if value == 0 {
+            return Err(err(format!("{label} must be >= 1")));
+        }
+        Ok(value)
     }
 }
 
