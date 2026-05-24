@@ -21,11 +21,13 @@ permissions:
   contents: read
 
 # Cancellation policy:
-# - PR synchronize events cancel stale runs for the same PR.
-# - Push, label, merge_group events do NOT cancel in-progress runs.
+# - Any pull_request event cancels stale runs for the same PR.
+# - Push and merge_group events do NOT cancel in-progress runs.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
+  # Cancel any prior PR run for the same PR number to avoid duplicate compute
+  # from rapid pushes/label churn while preserving push/merge_group history.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   CARGO_TERM_COLOR: always
