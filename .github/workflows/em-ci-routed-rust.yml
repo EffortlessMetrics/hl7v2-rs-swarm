@@ -59,7 +59,7 @@ jobs:
         needs.plan.result == 'skipped' ||
         needs.plan.outputs.docs_only != 'true'
       )
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 3
     outputs:
       router_target: ${{ steps.route.outputs.router_target }}
@@ -360,7 +360,7 @@ jobs:
       needs.route-rust-small.result == 'success' &&
       needs.route-rust-small.outputs.router_target == 'github' &&
       needs.route-rust-small.outputs.fallback_allowed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v6
@@ -385,7 +385,7 @@ jobs:
       always() &&
       needs.plan.result == 'success' &&
       needs.plan.outputs.docs_only == 'true'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
@@ -411,7 +411,7 @@ jobs:
       - rust-small-github
       - docs-gate
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 5
     steps:
       - name: Evaluate routed result
