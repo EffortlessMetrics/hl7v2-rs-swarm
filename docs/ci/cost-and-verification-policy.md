@@ -122,3 +122,88 @@ The following are non-negotiable regardless of cost pressure:
 
 See `docs/ci/labels.md` for the full label inventory. Labels override default routing without
 requiring CI changes.
+
+
+## Hard Compatibility Section: EffortlessMetrics CI Invariants
+
+These invariants are compatibility requirements for CI-efficiency changes. Any PR that optimizes CI cost must preserve them.
+
+### 1) Concurrency semantics for heavy/core PR workflows
+
+- Heavy/core Rust workflows must keep `cancel-in-progress: false`.
+- Required behavior is **single active run + single pending replacement slot**:
+  - the active run continues;
+  - a newer queued run replaces any older pending run;
+  - the active run is never canceled by default optimization.
+- Preferred pattern:
+
+```yaml
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+```
+
+- Do not submit "efficiency" changes that kill active heavy/core jobs unless the repository explicitly marks that workflow safe to cancel.
+
+### 2) Change classification is mandatory
+
+- Do not treat all changed files as Rust inputs.
+- Metadata/control-plane edits must route to light/docs/policy paths unless mixed with real build/test code changes.
+- Light by default (unless mixed):
+  - `docs/**`, `*.md`, `README*`, `CHANGELOG*`, `SECURITY*`, `CONTRIBUTING*`
+  - `policy/**`, `plans/**`, `badges/**`, `AGENTS.md`
+  - `.github/CODEOWNERS`, `.github/dependabot.yml`
+  - `.github/pull_request_template.md`, `.github/PULL_REQUEST_TEMPLATE/**`
+  - `.codex/campaigns/**`, `docs/tracking/**`, `ci/hardware/**` receipts
+  - `.rails/**`, `.uselesskey/**`
+- Workflow files are special:
+  - `.github/workflows/**` is **not** docs-light;
+  - route workflow-only edits to minimal hosted workflow validation/safety checks.
+
+### 3) Default PR routing policy
+
+- Classify first, then choose the cheapest truthful lane.
+- `docs/control-plane-only` -> no Rust compile.
+- `workflow-only` -> hosted workflow/YAML validation only (no full Rust CI).
+- `Rust source/build/test touched` -> self-hosted `rust-small`.
+- `hardware/GPU/receipt-only` -> syntax/receipt checks only.
+- `unknown or mixed` -> `rust-small` (not full CI).
+- Full CI is opt-in via label/manual dispatch/main/release/schedule/merge queue.
+
+### 4) Hosted fallback policy
+
+- Do not silently replace a self-hosted `rust-small` lane with a full hosted Rust equivalent.
+- Fork PRs may use a tiny hosted safe lane.
+- Missing runner readiness/tokens/idle capacity must not auto-trigger 75-120 minute hosted fallbacks.
+- Expensive hosted fallback requires explicit intent (`full-ci`, `allow-github-hosted`, `ci-budget-ack`, or equivalent).
+
+### 5) Artifact policy
+
+- Default PR paths should not upload large artifacts unconditionally.
+- Prefer upload-on-failure with short retention (3-7 days).
+- If policy receipts are required, keep them small and avoid uploads on docs/control-plane-only paths.
+
+### 6) Required tests for CI-only efficiency PRs
+
+Each CI-efficiency PR must include:
+
+- `git diff --check`
+- YAML parse/validation checks for edited workflow files
+- classification dry-run or shell/unit tests that cover:
+  - docs-only
+  - `.rails/**`
+  - `.uselesskey/**`
+  - workflow-file-only change
+  - Rust-file change
+  - mixed docs + Rust
+- proof that heavy/core workflow concurrency semantics were not regressed to active-run cancellation unless intentionally documented.
+
+### Review rejection gates for CI-efficiency PRs
+
+Reject CI-efficiency PRs unless they explicitly answer all of the following:
+
+1. Does heavy/core CI preserve `cancel-in-progress: false` semantics?
+2. Do metadata/control-plane-only changes avoid Rust CI?
+3. Are workflow edits kept out of docs-light routing?
+4. Is expensive hosted fallback still explicit rather than silent?
+5. Does the change reduce billable CI work instead of moving it around?
