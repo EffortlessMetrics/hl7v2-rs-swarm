@@ -40,7 +40,7 @@ concurrency:
 jobs:
   validate-openapi:
     name: Validate OpenAPI Spec
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v6
 
@@ -69,7 +69,7 @@ jobs:
 
   validate-proto:
     name: Validate Protocol Buffers
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v6
 
@@ -104,7 +104,7 @@ jobs:
 
   schema-validation:
     name: Validate Schemas
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v6
 

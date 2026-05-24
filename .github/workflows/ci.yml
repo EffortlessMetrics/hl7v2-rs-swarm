@@ -38,7 +38,7 @@ jobs:
   # ============================================================================
   fast:
     name: Fast Checks
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 15
     steps:
       - name: Checkout repository
@@ -85,7 +85,7 @@ jobs:
   # ============================================================================
   standard:
     name: Standard Tests
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: fast
     timeout-minutes: 15
     steps:
@@ -127,7 +127,7 @@ jobs:
   # ============================================================================
   msrv-smoke:
     name: MSRV Smoke (1.95)
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: fast
     timeout-minutes: 15
     steps:
@@ -157,7 +157,7 @@ jobs:
   # ============================================================================
   matrix-test:
     name: Matrix Tests
-    runs-on: ${{ matrix.os }}
+    runs-on: self-hosted
     needs: fast
     if: >-
       github.event_name == 'push' ||
@@ -213,7 +213,7 @@ jobs:
   # ============================================================================
   extended:
     name: Extended Tests
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [fast, standard]
     if: >-
       (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
@@ -256,7 +256,7 @@ jobs:
   # ============================================================================
   benchmarks:
     name: Benchmarks
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [fast, standard]
     if: >-
       (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
@@ -304,7 +304,7 @@ jobs:
   # ============================================================================
   ci-success:
     name: CI Success
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [fast, standard, msrv-smoke, matrix-test]
     if: always()
     steps:
