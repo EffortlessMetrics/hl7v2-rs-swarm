@@ -67,6 +67,7 @@ jobs:
       repo: ${{ steps.route.outputs.repo }}
       workflow: ${{ steps.route.outputs.workflow }}
       run_id: ${{ steps.route.outputs.run_id }}
+      fallback_allowed: ${{ steps.route.outputs.fallback_allowed }}
     steps:
       - name: Choose runner route
         id: route
@@ -79,18 +80,21 @@ jobs:
           ROUTE_SKIP_CX43: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_cx43 == 'true' }}
           ROUTE_SKIP_CX53: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_cx53 == 'true' }}
           WORKFLOW_NAME: em-ci-routed-rust
+          ALLOW_GITHUB_HOSTED: ${{ github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'allow-github-hosted') || contains(github.event.pull_request.labels.*.name, 'ci-budget-ack')) }}
         run: |
           set -euo pipefail
 
           choose() {
             local target="$1"
             local reason="$2"
+            local fallback_allowed="${3:-false}"
             {
               echo "router_target=$target"
               echo "router_reason=$reason"
               echo "repo=$REPOSITORY"
               echo "workflow=$WORKFLOW_NAME"
               echo "run_id=$GITHUB_RUN_ID"
+              echo "fallback_allowed=$fallback_allowed"
             } >> "$GITHUB_OUTPUT"
             {
               echo "### HL7v2 Rust Small Route"
@@ -103,16 +107,17 @@ jobs:
               echo "- route_skip_cpx42: \`${ROUTE_SKIP_CPX42:-false}\`"
               echo "- route_skip_cx43: \`${ROUTE_SKIP_CX43:-false}\`"
               echo "- route_skip_cx53: \`${ROUTE_SKIP_CX53:-false}\`"
+              echo "- fallback_allowed: \`$fallback_allowed\`"
             } >> "$GITHUB_STEP_SUMMARY"
           }
 
           if [ "$IS_FORK_PR" = "true" ]; then
-            choose "github" "fork_pr"
+            choose "github" "fork_pr" "true"
             exit 0
           fi
 
           if [ -z "${GH_TOKEN:-}" ]; then
-            choose "github" "runner_token_missing"
+            choose "github" "runner_token_missing" "${ALLOW_GITHUB_HOSTED:-false}"
             exit 0
           fi
 
@@ -124,11 +129,11 @@ jobs:
             echo "::notice::organization runner API request failed; using GitHub-hosted fallback"
             cat /tmp/gh-runner-api.err >&2 || true
             if grep -q "HTTP 401" /tmp/gh-runner-api.err; then
-              choose "github" "runner_token_unauthorized"
+              choose "github" "runner_token_unauthorized" "${ALLOW_GITHUB_HOSTED:-false}"
             elif grep -q "HTTP 403" /tmp/gh-runner-api.err; then
-              choose "github" "runner_token_forbidden"
+              choose "github" "runner_token_forbidden" "${ALLOW_GITHUB_HOSTED:-false}"
             else
-              choose "github" "runner_api_failed"
+              choose "github" "runner_api_failed" "${ALLOW_GITHUB_HOSTED:-false}"
             fi
             exit 0
           fi
@@ -184,7 +189,7 @@ jobs:
             exit 0
           fi
 
-          choose "github" "no_idle_runner"
+          choose "github" "no_idle_runner" "${ALLOW_GITHUB_HOSTED:-false}"
 
   rust-small-cpx42:
     name: Rust Small on CPX42
@@ -348,14 +353,15 @@ jobs:
           df -h /mnt/ci-scratch /mnt/docker /mnt/ci-cache || true
 
   rust-small-github:
-    name: Rust Small on GitHub Hosted
+    name: Rust Tiny Fallback on GitHub Hosted
     needs: route-rust-small
     if: >-
       always() &&
       needs.route-rust-small.result == 'success' &&
-      needs.route-rust-small.outputs.router_target == 'github'
+      needs.route-rust-small.outputs.router_target == 'github' &&
+      needs.route-rust-small.outputs.fallback_allowed == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v6
 
@@ -369,8 +375,8 @@ jobs:
           shared-key: hl7v2-rust-small-1.95-${{ hashFiles('Cargo.lock') }}
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - name: Run Rust small gate
-        run: cargo run -p xtask -- gate --check
+      - name: Run tiny fallback check
+        run: cargo check --workspace --locked --all-targets
 
   docs-gate:
     name: Docs Gate
@@ -422,6 +428,7 @@ jobs:
           ROUTER_REPO: ${{ needs.route-rust-small.outputs.repo }}
           ROUTER_WORKFLOW: ${{ needs.route-rust-small.outputs.workflow }}
           ROUTER_RUN_ID: ${{ needs.route-rust-small.outputs.run_id }}
+          FALLBACK_ALLOWED: ${{ needs.route-rust-small.outputs.fallback_allowed }}
         run: |
           set -euo pipefail
 
@@ -443,6 +450,7 @@ jobs:
             echo "- repo: \`${ROUTER_REPO:-}\`"
             echo "- workflow: \`${ROUTER_WORKFLOW:-}\`"
             echo "- run_id: \`${ROUTER_RUN_ID:-}\`"
+            echo "- fallback_allowed: \`${FALLBACK_ALLOWED:-}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "$PLAN" = "failure" ] || [ "$PLAN" = "cancelled" ]; then
@@ -457,6 +465,11 @@ jobs:
 
           if [ "$ROUTE" != "success" ]; then
             echo "::error::Router did not complete successfully: $ROUTE"
+            exit 1
+          fi
+
+          if [ "${ROUTER_TARGET:-}" = "github" ] && [ "${FALLBACK_ALLOWED:-false}" != "true" ]; then
+            echo "::error::GitHub-hosted fallback blocked by policy (add allow-github-hosted or ci-budget-ack label)"
             exit 1
           fi
 
