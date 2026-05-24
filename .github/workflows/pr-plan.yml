@@ -59,7 +59,7 @@ jobs:
 
       - name: Upload CI plan artifact
         uses: actions/upload-artifact@v4
-        if: always()
+        if: failure()
         with:
           name: ci-plan
           path: target/ci/ci-plan.json
