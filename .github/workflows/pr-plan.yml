@@ -30,7 +30,7 @@ jobs:
   plan:
     name: PR Plan
     if: github.event_name == 'pull_request'
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       docs_only: ${{ steps.plan.outputs.docs_only }}
@@ -59,7 +59,7 @@ jobs:
 
       - name: Upload CI plan artifact
         uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
           name: ci-plan
           path: target/ci/ci-plan.json

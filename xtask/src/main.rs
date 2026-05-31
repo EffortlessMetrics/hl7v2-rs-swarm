@@ -10298,11 +10298,11 @@ fn check_swarm_routed_rust_text_invariants(
         ),
         (
             "CX53 runner labels",
-            "runs-on: [self-hosted, Linux, X64, em-ci, cx53, rust-small, trusted-pr]",
+            "labels: [self-hosted, linux, x64, em-ci, cx53, rust-small, trusted-pr]",
         ),
         (
             "CX43 runner labels",
-            "runs-on: [self-hosted, Linux, X64, em-ci, cx43, rust-small, trusted-pr]",
+            "labels: [self-hosted, linux, x64, em-ci, cx43, rust-small, trusted-pr]",
         ),
         (
             "CPX42 runner labels",

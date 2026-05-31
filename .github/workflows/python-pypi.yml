@@ -28,7 +28,7 @@ env:
 jobs:
   wheel_proof:
     name: Build and smoke wheel
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
@@ -230,7 +230,7 @@ jobs:
     name: Publish to PyPI
     needs: wheel_proof
     if: ${{ inputs.publish_to_pypi }}
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
       name: pypi
@@ -339,7 +339,7 @@ jobs:
       - wheel_proof
       - publish_pypi
     if: ${{ inputs.publish_to_pypi }}
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:

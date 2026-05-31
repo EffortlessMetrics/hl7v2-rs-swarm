@@ -36,7 +36,7 @@ concurrency:
 jobs:
   plan:
     name: Mutation Plan
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       run_mutation: ${{ steps.plan.outputs.run_mutation }}
@@ -191,7 +191,7 @@ jobs:
 
   targeted-mutation:
     name: Targeted Mutation
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: plan
     if: needs.plan.outputs.run_mutation == 'true'
     timeout-minutes: 60
