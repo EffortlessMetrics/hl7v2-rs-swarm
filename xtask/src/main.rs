@@ -10464,6 +10464,7 @@ fn allowed_source_sync_boundary_paths() -> BTreeSet<&'static str> {
         "docs/ops/swarm-development.md",
         "policy/ci-lane-whitelist.toml",
         "policy/workflow-allowlist.toml",
+        "scripts/ci/check-no-bare-self-hosted.sh",
         "xtask/src/cli.rs",
         "xtask/src/main.rs",
     ])
@@ -11680,6 +11681,7 @@ M\tdocs/ci/ci-lane-whitelist.md
 A\tdocs/ops/swarm-development.md
 M\tpolicy/ci-lane-whitelist.toml
 M\tpolicy/workflow-allowlist.toml
+A\tscripts/ci/check-no-bare-self-hosted.sh
 M\txtask/src/cli.rs
 M\txtask/src/main.rs
 ";

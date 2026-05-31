@@ -284,6 +284,7 @@ The remaining source-vs-swarm tree delta is intentional swarm infrastructure:
 - `docs/ops/swarm-development.md`
 - swarm routed-lane entries in `policy/ci-lane-whitelist.toml`
 - swarm workflow allowlist entry in `policy/workflow-allowlist.toml`
+- swarm self-hosted runner guard script in `scripts/ci/check-no-bare-self-hosted.sh`
 - `xtask` source-sync boundary command wiring
 - the active-goal work item for the swarm cutover
 
