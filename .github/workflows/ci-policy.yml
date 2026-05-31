@@ -15,6 +15,17 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action == 'synchronize' }}
 
 jobs:
+
+  no-bare-self-hosted:
+    name: No Bare Self-Hosted Routing
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check runner routing contract
+        run: scripts/ci/check-no-bare-self-hosted.sh
+
   ci-lane-whitelist:
     name: CI Lane Whitelist
     runs-on: self-hosted

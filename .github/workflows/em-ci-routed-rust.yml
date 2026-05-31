@@ -59,7 +59,7 @@ jobs:
         needs.plan.result == 'skipped' ||
         needs.plan.outputs.docs_only != 'true'
       )
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 3
     outputs:
       router_target: ${{ steps.route.outputs.router_target }}
@@ -160,7 +160,7 @@ jobs:
             cx43="$(jq -r '[.runners[]
               | select(.status == "online" and (.busy | not))
               | select([.labels[].name] as $labels
-                | (["em-ci", "cx43", "rust-small", "trusted-pr"] - $labels | length == 0))
+                | (["em-ci", "cx43", "rust-medium", "trusted-pr"] - $labels | length == 0))
               | .name] | first // ""' "$response")"
           else
             echo "Manual workflow_dispatch proof skipped CX43 route selection"
@@ -177,7 +177,7 @@ jobs:
             cx53="$(jq -r '[.runners[]
               | select(.status == "online" and (.busy | not))
               | select([.labels[].name] as $labels
-                | (["em-ci", "cx53", "rust-small", "trusted-pr"] - $labels | length == 0))
+                | (["em-ci", "cx53", "rust-large", "trusted-pr"] - $labels | length == 0))
               | .name] | first // ""' "$response")"
           else
             echo "Manual workflow_dispatch proof skipped CX53 route selection"
@@ -197,7 +197,8 @@ jobs:
     if: >-
       always() &&
       needs.route-rust-small.result == 'success' &&
-      needs.route-rust-small.outputs.router_target == 'cpx42'
+      needs.route-rust-small.outputs.router_target == 'cpx42' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on:
       group: em-ci-small
       labels: [self-hosted, linux, x64, em-ci, cpx42, rust-16gb, rust-medium, trusted-pr]
@@ -205,6 +206,8 @@ jobs:
     env:
       CARGO_BUILD_JOBS: "7"
       CARGO_INCREMENTAL: "0"
+      CARGO_HOME: /mnt/ci-cache/cargo
+      SCCACHE_DIR: /mnt/ci-cache/sccache
       CARGO_TARGET_DIR: /mnt/ci-scratch/hl7v2-rs-swarm/${{ github.run_id }}-${{ github.run_attempt }}
       TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}
     steps:
@@ -215,7 +218,7 @@ jobs:
           set -euo pipefail
           ci-disk-guard /mnt/ci-scratch 45
           ci-disk-guard /mnt/ci-cache 10
-          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR"
+          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR" "$CARGO_HOME" "$SCCACHE_DIR"
 
       - uses: dtolnay/rust-toolchain@v1
         with:
@@ -227,7 +230,7 @@ jobs:
           set -euo pipefail
           ci-disk-guard /mnt/ci-scratch 45
           ci-disk-guard /mnt/ci-cache 10
-          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR"
+          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR" "$CARGO_HOME" "$SCCACHE_DIR"
           df -h /mnt/ci-scratch /mnt/docker /mnt/ci-cache || true
           rustc --version
           cargo --version
@@ -252,12 +255,17 @@ jobs:
     if: >-
       always() &&
       needs.route-rust-small.result == 'success' &&
-      needs.route-rust-small.outputs.router_target == 'cx53'
-    runs-on: [self-hosted, Linux, X64, em-ci, cx53, rust-small, trusted-pr]
+      needs.route-rust-small.outputs.router_target == 'cx53' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on:
+      group: em-ci-small
+      labels: [self-hosted, linux, x64, em-ci, cx53, rust-large, trusted-pr]
     timeout-minutes: 25
     env:
       CARGO_BUILD_JOBS: "12"
       CARGO_INCREMENTAL: "0"
+      CARGO_HOME: /mnt/ci-cache/cargo
+      SCCACHE_DIR: /mnt/ci-cache/sccache
       CARGO_TARGET_DIR: /mnt/ci-scratch/hl7v2-rs-swarm/${{ github.run_id }}-${{ github.run_attempt }}
       TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}
     steps:
@@ -268,7 +276,7 @@ jobs:
           set -euo pipefail
           ci-disk-guard /mnt/ci-scratch 100
           ci-disk-guard /mnt/ci-cache 20
-          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR"
+          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR" "$CARGO_HOME" "$SCCACHE_DIR"
 
       - uses: dtolnay/rust-toolchain@v1
         with:
@@ -280,7 +288,7 @@ jobs:
           set -euo pipefail
           ci-disk-guard /mnt/ci-scratch 100
           ci-disk-guard /mnt/ci-cache 20
-          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR"
+          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR" "$CARGO_HOME" "$SCCACHE_DIR"
           df -h /mnt/ci-scratch /mnt/docker /mnt/ci-cache || true
           rustc --version
           cargo --version
@@ -305,12 +313,17 @@ jobs:
     if: >-
       always() &&
       needs.route-rust-small.result == 'success' &&
-      needs.route-rust-small.outputs.router_target == 'cx43'
-    runs-on: [self-hosted, Linux, X64, em-ci, cx43, rust-small, trusted-pr]
+      needs.route-rust-small.outputs.router_target == 'cx43' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on:
+      group: em-ci-small
+      labels: [self-hosted, linux, x64, em-ci, cx43, rust-medium, trusted-pr]
     timeout-minutes: 30
     env:
       CARGO_BUILD_JOBS: "8"
       CARGO_INCREMENTAL: "0"
+      CARGO_HOME: /mnt/ci-cache/cargo
+      SCCACHE_DIR: /mnt/ci-cache/sccache
       CARGO_TARGET_DIR: /mnt/ci-scratch/hl7v2-rs-swarm/${{ github.run_id }}-${{ github.run_attempt }}
       TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}
     steps:
@@ -321,7 +334,7 @@ jobs:
           set -euo pipefail
           ci-disk-guard /mnt/ci-scratch 100
           ci-disk-guard /mnt/ci-cache 20
-          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR"
+          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR" "$CARGO_HOME" "$SCCACHE_DIR"
 
       - uses: dtolnay/rust-toolchain@v1
         with:
@@ -333,7 +346,7 @@ jobs:
           set -euo pipefail
           ci-disk-guard /mnt/ci-scratch 100
           ci-disk-guard /mnt/ci-cache 20
-          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR"
+          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR" "$CARGO_HOME" "$SCCACHE_DIR"
           df -h /mnt/ci-scratch /mnt/docker /mnt/ci-cache || true
           rustc --version
           cargo --version
@@ -360,7 +373,7 @@ jobs:
       needs.route-rust-small.result == 'success' &&
       needs.route-rust-small.outputs.router_target == 'github' &&
       needs.route-rust-small.outputs.fallback_allowed == 'true'
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v6
@@ -385,7 +398,7 @@ jobs:
       always() &&
       needs.plan.result == 'success' &&
       needs.plan.outputs.docs_only == 'true'
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
@@ -411,7 +424,7 @@ jobs:
       - rust-small-github
       - docs-gate
     if: always()
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Evaluate routed result
