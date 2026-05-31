@@ -10290,19 +10290,19 @@ fn check_swarm_routed_rust_text_invariants(
         ),
         (
             "CX53 selector labels",
-            "[\"em-ci\", \"cx53\", \"rust-large\", \"trusted-pr\"] - $labels",
+            "[\"em-ci\", \"cx53\", \"rust-small\", \"trusted-pr\"] - $labels",
         ),
         (
             "CX43 selector labels",
-            "[\"em-ci\", \"cx43\", \"rust-medium\", \"trusted-pr\"] - $labels",
+            "[\"em-ci\", \"cx43\", \"rust-small\", \"trusted-pr\"] - $labels",
         ),
         (
             "CX53 runner labels",
-            "labels: [self-hosted, linux, x64, em-ci, cx53, rust-large, trusted-pr]",
+            "labels: [self-hosted, linux, x64, em-ci, cx53, rust-small, trusted-pr]",
         ),
         (
             "CX43 runner labels",
-            "labels: [self-hosted, linux, x64, em-ci, cx43, rust-medium, trusted-pr]",
+            "labels: [self-hosted, linux, x64, em-ci, cx43, rust-small, trusted-pr]",
         ),
         (
             "CPX42 runner labels",
@@ -10584,8 +10584,8 @@ fn swarm_branch_protection_errors(value: &serde_json::Value) -> Vec<String> {
 }
 
 const SWARM_CPX42_LABELS: &[&str] = &["em-ci", "cpx42", "rust-medium", "rust-16gb", "trusted-pr"];
-const SWARM_CX43_LABELS: &[&str] = &["em-ci", "cx43", "rust-medium", "trusted-pr"];
-const SWARM_CX53_LABELS: &[&str] = &["em-ci", "cx53", "rust-large", "trusted-pr"];
+const SWARM_CX43_LABELS: &[&str] = &["em-ci", "cx43", "rust-small", "trusted-pr"];
+const SWARM_CX53_LABELS: &[&str] = &["em-ci", "cx53", "rust-small", "trusted-pr"];
 
 fn check_swarm_runner_setup(
     repo: &str,
@@ -11822,7 +11822,7 @@ M\tdocs/ops/swarm-development.md
                     "labels": [
                         {"name": "em-ci"},
                         {"name": "cx53"},
-                        {"name": "rust-large"},
+                        {"name": "rust-small"},
                         {"name": "trusted-pr"}
                     ]
                 },
@@ -11833,7 +11833,7 @@ M\tdocs/ops/swarm-development.md
                     "labels": [
                         {"name": "em-ci"},
                         {"name": "cx43"},
-                        {"name": "rust-medium"},
+                        {"name": "rust-small"},
                         {"name": "trusted-pr"}
                     ]
                 }
@@ -11862,7 +11862,7 @@ M\tdocs/ops/swarm-development.md
                     "labels": [
                         {"name": "em-ci"},
                         {"name": "cx53"},
-                        {"name": "rust-large"},
+                        {"name": "rust-small"},
                         {"name": "trusted-pr"}
                     ]
                 },
@@ -11873,7 +11873,7 @@ M\tdocs/ops/swarm-development.md
                     "labels": [
                         {"name": "em-ci"},
                         {"name": "cx43"},
-                        {"name": "rust-medium"},
+                        {"name": "rust-small"},
                         {"name": "trusted-pr"}
                     ]
                 }
@@ -11917,7 +11917,7 @@ M\tdocs/ops/swarm-development.md
                     "labels": [
                         {"name": "em-ci"},
                         {"name": "cx53"},
-                        {"name": "rust-large"},
+                        {"name": "rust-small"},
                         {"name": "trusted-pr"}
                     ]
                 }
@@ -11961,7 +11961,7 @@ M\tdocs/ops/swarm-development.md
                     "labels": [
                         {"name": "em-ci"},
                         {"name": "cx53"},
-                        {"name": "rust-large"},
+                        {"name": "rust-small"},
                         {"name": "trusted-pr"}
                     ]
                 },
@@ -11972,7 +11972,7 @@ M\tdocs/ops/swarm-development.md
                     "labels": [
                         {"name": "em-ci"},
                         {"name": "cx43"},
-                        {"name": "rust-medium"},
+                        {"name": "rust-small"},
                         {"name": "trusted-pr"}
                     ]
                 }

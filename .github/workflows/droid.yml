@@ -45,7 +45,7 @@ jobs:
       (github.event_name == 'pull_request_review' &&
       contains(github.event.review.body, '@droid') &&
       !contains(github.event.review.body, '@droid security --full'))
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Verify Factory API key
         env:

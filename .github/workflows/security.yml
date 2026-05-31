@@ -22,7 +22,7 @@ concurrency:
 jobs:
   audit:
     name: Dependency Audit
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
@@ -50,7 +50,7 @@ jobs:
 
   deny:
     name: Cargo Deny
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
@@ -66,7 +66,7 @@ jobs:
 
   sast:
     name: SAST (Semgrep)
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     container:
       image: returntocorp/semgrep
     steps:
@@ -83,7 +83,7 @@ jobs:
 
   clippy-security:
     name: Clippy Security Lints
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
@@ -106,7 +106,7 @@ jobs:
   # Disable dependency-review as it's not supported in this repo
   # dependency-review:
   #   name: Dependency Review
-  #   runs-on: self-hosted
+  #   runs-on: ubuntu-latest
   #   if: github.event_name == 'pull_request'
   #   steps:
   #     - uses: actions/checkout@v6
@@ -115,7 +115,7 @@ jobs:
 
   license-check:
     name: License Regression Check
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - name: Install ripgrep
@@ -138,7 +138,7 @@ jobs:
 
   secrets-scanning:
     name: Secrets Scanning
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
@@ -172,7 +172,7 @@ jobs:
 
   trivy-scan:
     name: Container Security (Trivy)
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
