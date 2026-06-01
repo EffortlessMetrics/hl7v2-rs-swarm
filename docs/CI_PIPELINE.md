@@ -95,21 +95,23 @@ Dedicated workflow for code coverage analysis.
    - Uploads LCOV to Codecov when `CODECOV_TOKEN` is configured
    - Writes a claim-bounded coverage receipt under `target/coverage/`
 
-### `.github/workflows/droid.yml` - Factory Droid Manual Review
+### `.github/workflows/droid.yml` - Factory Droid PR Review
 
-Optional Factory Droid review automation. It responds only to explicit `@droid`
-commands in pull request comments or review text. Automatic PR review is not
-enabled, so this workflow does not add a status check to every PR.
+Optional Factory Droid review automation. It runs on pull request open,
+synchronize, reopen, and ready-for-review events for non-draft pull requests.
+The workflow configures Factory BYOK at runtime with MiniMax M3 through
+MiniMax's Anthropic-compatible endpoint and pins both automatic review and
+automatic security review to `custom:MiniMax-M3-0`.
 
 #### Setup:
 
 1. Install the Factory Droid GitHub App for this repository.
 2. Add `FACTORY_API_KEY` under repository or organization Actions secrets.
-3. Ask a repository writer to comment `@droid review`, `@droid fill`, or
-   `@droid security` on a pull request.
+3. Add `MINIMAX_API_KEY` under repository or organization Actions secrets using
+   a MiniMax Token Plan Subscription Key.
 
-Full-repository `@droid security --full` scans are not enabled in this first
-pass because they can create branches and need broader write permissions.
+The workflow clears global Anthropic environment overrides for the Droid action
+so the configured MiniMax BYOK model supplies the review credentials.
 
 ### `.github/workflows/python-wheels.yml` - Python Wheel Smoke
 
