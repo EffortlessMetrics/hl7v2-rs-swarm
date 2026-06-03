@@ -25,6 +25,57 @@ pub(crate) enum Commands {
         #[arg(long)]
         only: Option<String>,
     },
+    /// Stable PR verification wrapper: repo policy first, upstream tools underneath
+    CheckPr {
+        /// Only check crates that have changed
+        #[arg(long)]
+        changed: bool,
+    },
+    /// Stable PR fix wrapper for local formatting and lint cleanup
+    FixPr,
+    /// Print the repo-scoped PR policy summary
+    PrSummary,
+    /// Verify source exception receipts through cargo-allow
+    AllowCheck,
+    /// Compare source exception receipts through cargo-allow
+    AllowDiff,
+    /// Generate the diff-scoped unsafe-review evidence card
+    UnsafeReviewPr {
+        /// Base revision for the PR diff.
+        #[arg(long, default_value = "origin/main")]
+        base: String,
+        /// Head revision for the PR diff.
+        #[arg(long, default_value = "HEAD")]
+        head: String,
+    },
+    /// Run the default PR test lane through cargo-nextest
+    TestPr,
+    /// Run doctests through Cargo because nextest does not run doctests
+    TestDocs,
+    /// Run the standard Rust coverage lane through cargo-llvm-cov
+    Coverage,
+    /// Run targeted runtime mutation testing through cargo-mutants
+    MutationTargeted {
+        /// Limit mutation testing to a file/glob accepted by cargo-mutants.
+        #[arg(long)]
+        file: Option<String>,
+    },
+    /// Run targeted Miri tests on nightly
+    MiriTargeted {
+        /// Optional package to test with Miri.
+        #[arg(short = 'p', long)]
+        package: Option<String>,
+    },
+    /// Verify dependency policy through cargo-deny
+    CheckDeps,
+    /// Verify supply-chain policy through cargo-deny and cargo-audit
+    CheckSupplyChain,
+    /// Verify public API compatibility through cargo-semver-checks
+    SemverCheck,
+    /// Verify GitHub workflow syntax and security posture
+    CheckWorkflows,
+    /// Verify TOML formatting and lint policy through taplo
+    CheckToml,
     /// Fix formatting and common clippy issues
     LintFix,
     /// Setup development environment (git hooks, etc.)

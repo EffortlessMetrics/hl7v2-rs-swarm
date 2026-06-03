@@ -28,6 +28,22 @@ fn main() -> Result<()> {
             only,
         } => gate(check, changed, only)?,
         Commands::LintFix => lint_fix()?,
+        Commands::CheckPr { changed } => gate(true, changed, None)?,
+        Commands::FixPr => lint_fix()?,
+        Commands::PrSummary => policy_report()?,
+        Commands::AllowCheck => allow_check()?,
+        Commands::AllowDiff => allow_diff()?,
+        Commands::UnsafeReviewPr { base, head } => unsafe_review_pr(&base, &head)?,
+        Commands::TestPr => test_pr()?,
+        Commands::TestDocs => test_docs()?,
+        Commands::Coverage => coverage()?,
+        Commands::MutationTargeted { file } => mutation_targeted(file)?,
+        Commands::MiriTargeted { package } => miri_targeted(package)?,
+        Commands::CheckDeps => check_deps()?,
+        Commands::CheckSupplyChain => check_supply_chain()?,
+        Commands::SemverCheck => semver_check()?,
+        Commands::CheckWorkflows => check_workflows()?,
+        Commands::CheckToml => check_toml()?,
         Commands::Setup => setup()?,
         Commands::Audit => audit()?,
         Commands::Outdated => outdated()?,
@@ -253,6 +269,114 @@ fn gate(check: bool, changed_only: bool, only: Option<String>) -> Result<()> {
 
     println!("✅ Gate checks passed!");
     Ok(())
+}
+
+fn allow_check() -> Result<()> {
+    println!("📒 Checking source exception receipts with cargo-allow...");
+    run_command("cargo", &["allow", "check"])
+}
+
+fn allow_diff() -> Result<()> {
+    println!("📒 Diffing source exception receipts with cargo-allow...");
+    run_command("cargo", &["allow", "diff"])
+}
+
+fn unsafe_review_pr(base: &str, head: &str) -> Result<()> {
+    println!("🦺 Generating unsafe-review PR evidence...");
+    run_command("unsafe-review", &["pr", "--base", base, "--head", head])
+}
+
+fn test_pr() -> Result<()> {
+    println!("🧪 Running PR tests with cargo-nextest...");
+    run_command(
+        "cargo",
+        &[
+            "nextest",
+            "run",
+            "--workspace",
+            "--all-targets",
+            "--all-features",
+        ],
+    )
+}
+
+fn test_docs() -> Result<()> {
+    println!("📚 Running doctests with cargo test --doc...");
+    run_command("cargo", &["test", "--doc", "--workspace", "--all-features"])
+}
+
+fn coverage() -> Result<()> {
+    println!("📈 Running coverage with cargo-llvm-cov and nextest...");
+    run_command(
+        "cargo",
+        &[
+            "llvm-cov",
+            "nextest",
+            "--workspace",
+            "--all-targets",
+            "--all-features",
+        ],
+    )
+}
+
+fn mutation_targeted(file: Option<String>) -> Result<()> {
+    println!("🧬 Running targeted runtime mutation testing with cargo-mutants...");
+    let mut args = vec!["mutants".to_string(), "--workspace".to_string()];
+    if let Some(file) = file {
+        args.push("--file".to_string());
+        args.push(file);
+    }
+    run_command_owned("cargo", &args)
+}
+
+fn miri_targeted(package: Option<String>) -> Result<()> {
+    println!("🔬 Running targeted Miri tests on nightly...");
+    let mut args = vec![
+        "+nightly".to_string(),
+        "miri".to_string(),
+        "test".to_string(),
+    ];
+    if let Some(package) = package {
+        args.push("-p".to_string());
+        args.push(package);
+    } else {
+        args.push("--workspace".to_string());
+    }
+    args.push("--all-features".to_string());
+    run_command_owned("cargo", &args)
+}
+
+fn check_deps() -> Result<()> {
+    println!("🔐 Checking dependency policy with cargo-deny...");
+    run_command(
+        "cargo",
+        &["deny", "check", "advisories", "licenses", "bans", "sources"],
+    )
+}
+
+fn check_supply_chain() -> Result<()> {
+    check_deps()?;
+    println!("🔐 Checking RustSec advisories with cargo-audit...");
+    run_command("cargo", &["audit"])
+}
+
+fn semver_check() -> Result<()> {
+    println!("📦 Checking public API compatibility with cargo-semver-checks...");
+    run_command("cargo", &["semver-checks", "check-release"])
+}
+
+fn check_workflows() -> Result<()> {
+    println!("⚙️  Checking GitHub Actions workflows with actionlint...");
+    run_command("actionlint", &[])?;
+    println!("⚙️  Checking GitHub Actions security posture with zizmor...");
+    run_command("zizmor", &["."])
+}
+
+fn check_toml() -> Result<()> {
+    println!("🧾 Checking TOML formatting with taplo...");
+    run_command("taplo", &["fmt", "--check"])?;
+    println!("🧾 Checking TOML lint with taplo...");
+    run_command("taplo", &["lint"])
 }
 
 fn lint_fix() -> Result<()> {
