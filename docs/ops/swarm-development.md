@@ -332,6 +332,61 @@ Guard proof:
 - Keep server smoke, Python wheels, coverage, mutation, nightly, publish, and
   release workflows non-required during initial burn-in.
 
+## Org-wide Self-hosted Runner Policy (2026-06-02)
+
+A 2026-06-02 organization decision set the migration target for every repo:
+GitHub-hosted Linux runners are exception-only, the EM shared self-hosted
+runner groups are the default, cross-repo queueing on those groups is
+acceptable backpressure, and hanging/offline/disk-full runners are not
+acceptable. Repos must not add `ubuntu-latest` fallback purely to avoid
+queueing, must keep required check names stable, and must route each job to
+the smallest safe self-hosted tier:
+
+- `em-ci-nano` — non-build, control-plane, policy, workflow metadata.
+- `em-ci-review` — LLM/droid/static review lanes.
+- `em-ci-tiny` — CX33-safe tiny Rust metadata/light checks only.
+- `em-ci-small` + `rust-small`/`rust-medium` — normal Rust builds/tests.
+- `em-ci-small` + `rust-heavy-medium`/`rust-16gb` — heavy Rust lanes.
+- `em-ci-small` + `rust-large` — reserved for the single heaviest lane only.
+
+Any self-hosted Rust lane must use the shared cargo/sccache setup rather than
+cold-compiling, proof/evidence/gate lanes keep their `cancel-in-progress`
+semantics, and every self-hosted job carries trusted-PR gating, disk guards,
+cleanup, and a timeout.
+
+### How this swarm repo maps to the org policy
+
+This repository is the swarm development surface for `hl7v2-rs` and is held
+identical to that source mirror except for the intentional swarm-only deltas
+listed under [Source Sync Boundary](#source-sync-boundary). That boundary, not
+queue economics, is what determines which workflows can move here:
+
+- The routed Rust gate `em-ci-routed-rust.yml` ("HL7v2 Rust Small") is already
+  on self-hosted `em-ci-small`, routing CPX42 -> CX43 -> CX53 with shared
+  `CARGO_HOME`/`SCCACHE_DIR` under `/mnt/ci-cache`, scratch under
+  `/mnt/ci-scratch`, disk guards, post-job cleanup, per-ref concurrency,
+  job timeouts, and `trusted-pr` gating. Its GitHub-hosted route is a safety
+  fallback for fork PRs, missing/forbidden `EM_RUNNER_READ_TOKEN`, runner-API
+  failure, or no idle runner — not a queue-avoidance fallback, so it satisfies
+  the "no `ubuntu-latest` just to dodge queueing" rule.
+- The remaining `ubuntu-latest` workflows (`ci`, `pr-gate`, `pr-plan`,
+  `ci-policy`, `contracts`, `coverage`, `mutation`, `nightly`, `security`,
+  `server-smoke`, `python-*`, `publish`, `release-readiness`, `droid`, `ripr`)
+  are source-owned files kept byte-identical to `hl7v2-rs`. Re-tiering them onto
+  `em-ci-*` here would diverge from source outside the allowlist and fail
+  `check-source-sync-boundary`, so their tiering belongs upstream, not in the
+  swarm.
+- The Windows and macOS matrix legs in `ci.yml` and `python-wheels.yml` are
+  legitimate hosted exceptions under the org policy: there is no self-hosted
+  Windows/macOS fleet.
+- The required check stays exactly `HL7v2 Rust Small Result`; see
+  [Branch Rules](#branch-rules) and `check-swarm-branch-protection`.
+
+The remaining gap against the org target is platform-side, not workflow code:
+proving CX43 routing and confirming `EM_RUNNER_READ_TOKEN` can read
+`orgs/EffortlessMetrics/actions/runners`, tracked in
+[Current Admin Boundary](#current-admin-boundary) below.
+
 ## Current Admin Boundary
 
 The swarm repository has been created and seeded from the source history. The
