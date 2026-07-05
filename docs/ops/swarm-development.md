@@ -322,6 +322,29 @@ Guard proof:
   intentional swarm-only deltas:
   `cargo +1.95.0 run -p xtask -- check-source-sync-boundary --source-ref source/main --swarm-ref HEAD`.
 
+Missed-sync restoration receipt (2026-07-04):
+
+- The 2026-06-05 sync pass brought source #916, #918, #919/#920, and #921 into
+  swarm but skipped source PR #917, `fix: decode formatted text line breaks`
+  (source commit `869b7d1`). That left four product files drifted from
+  `source/main`: `crates/hl7v2/src/escape.rs`,
+  `crates/hl7v2/src/escape/tests.rs`,
+  `crates/hl7v2/src/parser/comprehensive_tests/unit_tests.rs`, and
+  `badges/ripr.json`.
+- Source #917 was synced to swarm in PR #143, merged on 2026-07-04 at
+  `1a694bafd950c762c77ddfa8d18bbc0b171838e3`, with `badges/ripr.json` resolved
+  to the `source/main` value `12764`.
+- `badges --check` parity requires the CI-pinned `ripr 0.5.0`; newer local
+  `ripr` versions compute a different badge value and must not be used to
+  regenerate the badge in swarm.
+- A local boundary refresh on post-merge `main` against `source/main`
+  (`702541e`) passed with ten intentional swarm-only deltas:
+  `cargo +1.95.0 run -p xtask -- check-source-sync-boundary --source-ref source/main --swarm-ref HEAD`.
+- On the same date, the swarm `Security` workflow's `Dependency Audit` job was
+  already failing on `main` (weekly scheduled runs since 2026-06-14) due to
+  `RUSTSEC-2026-0190` against the pinned `anyhow 1.0.102`. The dependency bump
+  is source-owned and must land in `hl7v2-rs` first, then sync here.
+
 ## Self-hosted Guardrails
 
 - Run self-hosted jobs only for same-repository trusted PRs.
