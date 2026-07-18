@@ -552,6 +552,38 @@ fn test_get_msh_missing_field() {
     assert_eq!(get(&message, "MSH.10"), None);
 }
 
+#[test]
+fn test_get_msh_field_index_zero_does_not_panic() {
+    // `Path`/`LocatedPath` have public fields and `Path::new` performs no
+    // validation, so a caller can construct an MSH path with field 0 without
+    // going through `parse_located_path` (which rejects field 0). Field 0 must
+    // resolve to absent/missing rather than triggering the `field_index - 2`
+    // arithmetic-underflow panic in the MSH `else` branch.
+    let message = Message {
+        delims: Delims::default(),
+        segments: vec![create_test_segment(
+            "MSH",
+            vec![
+                create_text_field(vec!["^~\\&"]),
+                create_component_field(vec![vec!["SendingApp"]]),
+            ],
+        )],
+        charsets: vec![],
+    };
+
+    let located = path::LocatedPath {
+        segment_repetition: None,
+        path: path::Path::new("MSH", 0),
+    };
+
+    assert_eq!(get_located(&message, &located), None);
+    assert_eq!(get_presence_located(&message, &located), Presence::Missing);
+
+    let index = QueryIndex::new(&message);
+    assert_eq!(index.get_located(&located), None);
+    assert_eq!(index.get_presence_located(&located), Presence::Missing);
+}
+
 // =============================================================================
 // Presence Tests
 // =============================================================================

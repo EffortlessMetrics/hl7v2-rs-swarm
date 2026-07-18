@@ -1451,8 +1451,11 @@ fn evaluate_custom_rule_simple(msg: &Message, rule: &CustomRule, issues: &mut Ve
         // Pattern: "field(PATH).matches_regex('PATTERN')"
         if let Some(path_end) = rule.script.find(").matches_regex(") {
             let path = &rule.script[6..path_end];
-            // Extract the regex pattern
-            let pattern_part = &rule.script[path_end + 15..];
+            // Extract the regex pattern. `").matches_regex("` is 16 bytes, so
+            // skip 16 (not 15) to land on the opening quote of the pattern;
+            // using 15 retains the leading `(`, which makes the `starts_with('\'')`
+            // guard below always fail and silently drops the rule.
+            let pattern_part = &rule.script[path_end + 16..];
             if pattern_part.starts_with('\'') && pattern_part.ends_with("')") {
                 let pattern = &pattern_part[1..pattern_part.len() - 2];
                 // Simple regex matching (in a real implementation, we would use regex crate)

@@ -1199,9 +1199,19 @@ pub fn check_rule_condition(msg: &Message, condition: &RuleCondition) -> bool {
             }
         }
 
+        // numeric comparisons: true if any left-hand value satisfies the
+        // relation against the right-hand value. Non-numeric operands compare
+        // false (see `validate_mathematical_relationship`).
+        "gt" | "lt" | "ge" | "le" => match rhs_first {
+            Some(rhs) => lhs_values.iter().any(|lhs| {
+                validate_mathematical_relationship(lhs, rhs, condition.operator.as_str())
+            }),
+            None => false,
+        },
+
         // existence
         "exists" => !lhs_values.is_empty(),
-        "not_exists" => lhs_values.is_empty(),
+        "not_exists" | "missing" => lhs_values.is_empty(),
 
         // temporal: accepts HL7 TS or YYYYMMDD
         "is_date" => lhs_values
