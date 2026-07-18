@@ -420,6 +420,12 @@ fn get_msh_field<'a>(
     component: Option<usize>,
     subcomponent: Option<usize>,
 ) -> Option<&'a str> {
+    if field_index == 0 {
+        // Field index 0 is not addressable; guard before the `field_index - 2`
+        // subtraction below to avoid an arithmetic-underflow panic on
+        // programmatically constructed paths that bypass `parse_located_path`.
+        return None;
+    }
     if field_index == 1 {
         // MSH-1 is the field separator character
         ascii_delimiter_value(msg.delims.field)
@@ -528,6 +534,12 @@ fn get_msh_field_presence(
     component: Option<usize>,
     subcomponent: Option<usize>,
 ) -> Presence {
+    if field_index == 0 {
+        // Field index 0 is not addressable; guard before the `field_index - 2`
+        // subtraction below to avoid an arithmetic-underflow panic on
+        // programmatically constructed paths that bypass `parse_located_path`.
+        return Presence::Missing;
+    }
     if field_index == 1 {
         // MSH-1 is the field separator character
         Presence::Value(msg.delims.field.to_string())

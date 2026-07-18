@@ -804,6 +804,61 @@ fn test_check_rule_condition_ne() {
 }
 
 #[test]
+fn test_check_rule_condition_numeric_comparisons() {
+    // OBX-5 carries the observation value "10".
+    let msg = parse_test_message(
+        "MSH|^~\\&|App|Fac|Recv|Fac|20230101||ORU^R01|1|P|2.5\rOBX|1|NM|GLU^Glucose||10|mg/dL\r",
+    );
+
+    let cond = |operator: &str, value: &str| RuleCondition {
+        field: "OBX.5".to_string(),
+        operator: operator.to_string(),
+        value: Some(value.to_string()),
+        values: None,
+    };
+
+    // gt / ge
+    assert!(check_rule_condition(&msg, &cond("gt", "5")));
+    assert!(!check_rule_condition(&msg, &cond("gt", "10")));
+    assert!(check_rule_condition(&msg, &cond("ge", "10")));
+    assert!(!check_rule_condition(&msg, &cond("ge", "11")));
+
+    // lt / le
+    assert!(check_rule_condition(&msg, &cond("lt", "20")));
+    assert!(!check_rule_condition(&msg, &cond("lt", "10")));
+    assert!(check_rule_condition(&msg, &cond("le", "10")));
+    assert!(!check_rule_condition(&msg, &cond("le", "9")));
+
+    // Non-numeric right-hand operand compares false rather than panicking.
+    assert!(!check_rule_condition(&msg, &cond("gt", "abc")));
+}
+
+#[test]
+fn test_check_rule_condition_missing_is_alias_for_not_exists() {
+    let msg = parse_test_message(
+        "MSH|^~\\&|App|Fac|Recv|Fac|20230101||ADT^A01|1|P|2.5\rPID|1||12345^^^MRN||Doe^John\r",
+    );
+
+    // Absent field is "missing".
+    let condition = RuleCondition {
+        field: "PID.99".to_string(),
+        operator: "missing".to_string(),
+        value: None,
+        values: None,
+    };
+    assert!(check_rule_condition(&msg, &condition));
+
+    // Present field is not "missing".
+    let condition = RuleCondition {
+        field: "PID.3.1".to_string(),
+        operator: "missing".to_string(),
+        value: None,
+        values: None,
+    };
+    assert!(!check_rule_condition(&msg, &condition));
+}
+
+#[test]
 fn test_check_rule_condition_contains() {
     let msg = parse_test_message(
         "MSH|^~\\&|App|Fac|Recv|Fac|20230101||ADT^A01|1|P|2.5\rPID|1||12345^^^MRN||Doe^John\r",

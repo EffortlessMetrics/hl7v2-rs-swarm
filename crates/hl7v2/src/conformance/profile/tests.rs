@@ -1012,6 +1012,43 @@ OBX|1|ST|FLAG^Flag||text|unit|range|{value}|||F\r"
     }
 
     #[test]
+    fn test_custom_rule_matches_regex_fallback_is_not_silently_dropped() {
+        // When a custom_rule's regex is not compilable, the primary
+        // script evaluator returns Err and `validate_custom_rule` defers to
+        // `evaluate_custom_rule_simple`. An off-by-one in that fallback's
+        // slice offset (`+15` vs the 16-byte `").matches_regex("`) used to
+        // retain a leading `(`, making the branch's `starts_with('\'')` guard
+        // always fail so the rule was silently skipped. With the offset fixed,
+        // the fallback performs its best-effort literal match and surfaces a
+        // violation instead of passing every message.
+        let y = r#"
+message_structure: "oru_regex_fallback"
+version: "2.5.1"
+segments:
+  - id: "OBX"
+custom_rules:
+  - id: "regex-fallback"
+    description: ""
+    script: "field(OBX.8).matches_regex('[bad')"
+"#;
+        let msg = parse(
+            b"MSH|^~\\&|LAB|FAC|EHR|FAC|20250101000000||ORU^R01|MSG1|P|2.5.1\r\
+OBX|1|ST|FLAG^Flag||text|unit|range|hello|||F\r",
+        )
+        .unwrap();
+        let p: Profile = load_profile(y).unwrap();
+        let probs = validate(&msg, &p);
+
+        assert_eq!(
+            probs.len(),
+            1,
+            "invalid-regex custom rule must not be silently dropped: {probs:?}"
+        );
+        assert_eq!(probs[0].code, "CUSTOM_RULE_VIOLATION");
+        assert_eq!(probs[0].path.as_deref(), Some("OBX.8"));
+    }
+
+    #[test]
     fn test_custom_rule_field_equality_checks_later_repetitions() {
         let y = r#"
 message_structure: "oru_custom_pair_repetitions"
@@ -1387,6 +1424,63 @@ table_precedence:
                 .issues
                 .iter()
                 .any(|issue| issue.severity == ProfileLintSeverity::Error)
+        );
+    }
+
+    #[test]
+    fn test_lint_profile_yaml_accepts_numeric_and_missing_operators() {
+        // These operators are evaluated by check_rule_condition, so the linter
+        // must recognize them rather than flagging unknown_rule_condition_operator.
+        let y = r#"
+message_structure: "xfield_operators"
+version: "2.5.1"
+segments:
+  - id: "OBX"
+cross_field_rules:
+  - id: "gt-rule"
+    description: ""
+    conditions:
+      - field: "OBX.5"
+        operator: "gt"
+        value: "5"
+    actions: []
+  - id: "lt-rule"
+    description: ""
+    conditions:
+      - field: "OBX.5"
+        operator: "lt"
+        value: "50"
+    actions: []
+  - id: "ge-rule"
+    description: ""
+    conditions:
+      - field: "OBX.5"
+        operator: "ge"
+        value: "5"
+    actions: []
+  - id: "le-rule"
+    description: ""
+    conditions:
+      - field: "OBX.5"
+        operator: "le"
+        value: "50"
+    actions: []
+  - id: "missing-rule"
+    description: ""
+    conditions:
+      - field: "OBX.99"
+        operator: "missing"
+    actions: []
+"#;
+
+        let report = lint_profile_yaml(y);
+
+        assert!(
+            !report
+                .issues
+                .iter()
+                .any(|issue| issue.code == "unknown_rule_condition_operator"),
+            "numeric/missing operators must be recognized by the linter: {report:?}"
         );
     }
 
