@@ -1082,3 +1082,40 @@ fn test_write_allocation_efficiency() {
     // Verify the output is reasonable (not excessively large due to over-allocation)
     assert!(bytes.len() < 1000);
 }
+
+#[test]
+fn test_write_non_ascii_delimiter_is_utf8_encoded_not_truncated() {
+    // `Delims` fields are public `char`s with no validation on direct
+    // construction, so a caller can set a non-ASCII separator. The writer must
+    // emit its UTF-8 bytes rather than truncating the code point with `as u8`
+    // (U+3042 'あ' would otherwise become 0x42 == b'B', silently corrupting
+    // the delimiter).
+    let delims = Delims {
+        field: 'あ',
+        comp: '^',
+        rep: '~',
+        esc: '\\',
+        sub: '&',
+    };
+    let message = Message {
+        delims,
+        segments: vec![Segment {
+            id: *b"PID",
+            fields: vec![Field::from_text("1"), Field::from_text("12345")],
+        }],
+        charsets: vec![],
+    };
+
+    let bytes = write(&message);
+    let text = String::from_utf8(bytes).unwrap();
+
+    assert!(
+        text.contains('あ'),
+        "non-ASCII field separator must be UTF-8 encoded: {text:?}"
+    );
+    assert!(
+        !text.contains('B'),
+        "code point must not be truncated to an unrelated ASCII byte: {text:?}"
+    );
+    assert_eq!(text, "PIDあ1あ12345\r");
+}
