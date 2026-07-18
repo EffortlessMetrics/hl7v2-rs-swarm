@@ -1497,8 +1497,15 @@ fn evaluate_custom_rule_simple(msg: &Message, rule: &CustomRule, issues: &mut Ve
             // using 15 retains the leading `(`, which makes the `starts_with('\'')`
             // guard below always fail and silently drops the rule.
             let pattern_part = &rule.script[path_end + 16..];
-            if pattern_part.starts_with('\'') && pattern_part.ends_with("')") {
-                let pattern = &pattern_part[1..pattern_part.len() - 2];
+            // `ends_with("')")` only guarantees `len() >= 2`; a degenerate
+            // `pattern_part == "')"` satisfies both the `starts_with`/`ends_with`
+            // guards while `len() - 2 == 0`, so slicing `[1..0]` would panic
+            // (`begin > end`). Use `get(..)`, which yields `None` for that
+            // ill-ordered range, so the malformed rule is simply skipped.
+            if pattern_part.starts_with('\'')
+                && pattern_part.ends_with("')")
+                && let Some(pattern) = pattern_part.get(1..pattern_part.len() - 2)
+            {
                 // Simple regex matching (in a real implementation, we would use regex crate)
                 if let Some(value) = first_condition_value_matching(msg, path, |value| {
                     !value.contains(pattern) && pattern != ".*"
