@@ -216,10 +216,13 @@ fn generate_segment(
             fields.push(field);
         }
     } else {
-        // For other segments, process all fields
+        // For other segments, process all fields. `field_templates` holds the
+        // fields after the segment ID, so offset 0 is field 1 (e.g. PID-1) and
+        // the HL7 field number is `offset + 1`. (The MSH branch above uses
+        // `offset + 2` with `skip(1)` because MSH-2 is emitted separately.)
         for (offset, field_template) in field_templates.iter().enumerate() {
             let field_number = offset
-                .checked_add(2)
+                .checked_add(1)
                 .ok_or_else(|| Error::InvalidFieldFormat {
                     details: "field number overflow".to_string(),
                 })?;
@@ -621,4 +624,48 @@ pub fn create_manifest(
     }
 
     manifest
+}
+
+#[cfg(test)]
+mod tests {
+    #![expect(
+        clippy::panic,
+        reason = "Template unit tests fail explicitly on test setup errors."
+    )]
+
+    use super::{Template, ValueSource, generate};
+    use std::collections::HashMap;
+
+    #[test]
+    fn value_source_maps_to_named_non_msh_field() {
+        // Regression: the non-MSH field-path mapping was off by one
+        // (`offset + 2`), so a value source registered for "PID.3" was applied
+        // to PID-2 instead. It must land on the field named in the path.
+        let mut values: HashMap<String, Vec<ValueSource>> = HashMap::new();
+        values.insert(
+            "PID.3".to_string(),
+            vec![ValueSource::Fixed("MRNVAL".to_string())],
+        );
+        let template = Template {
+            name: "regression".to_string(),
+            delims: "^~\\&".to_string(),
+            segments: vec![
+                "MSH|^~\\&|APP".to_string(),
+                "PID|1||ORIGMRN||Doe^John".to_string(),
+            ],
+            values,
+        };
+
+        let Ok(messages) = generate(&template, 42, 1) else {
+            panic!("generation should succeed");
+        };
+        let Some(msg) = messages.first() else {
+            panic!("expected one generated message");
+        };
+
+        // The value source registered for PID.3 must land on PID-3, and PID-2
+        // must retain its own (empty) template value.
+        assert_eq!(crate::get(msg, "PID.3"), Some("MRNVAL"));
+        assert_ne!(crate::get(msg, "PID.2"), Some("MRNVAL"));
+    }
 }
