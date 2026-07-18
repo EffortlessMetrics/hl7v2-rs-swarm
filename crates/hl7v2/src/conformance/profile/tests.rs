@@ -504,6 +504,79 @@ temporal_rules:
     }
 
     #[test]
+    fn test_temporal_rule_tolerance_boundary_is_inclusive() {
+        // PV1.10 is exactly `tolerance` (30s) later than ORC.4. "up to
+        // tolerance" is inclusive, so with allow_equal defaulting to false this
+        // must be compliant (the allow_equal flag governs only exact equality at
+        // ORC.4, not the tolerance boundary).
+        let mut msg = String::new();
+        msg.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
+        msg.push_str("PID|1||123456^^^HOSP^MR||Doe^John||19800101|M\r");
+        msg.push_str("PV1|1|O|CLINIC|||||||20250101000030\r");
+        msg.push_str("ORC|RE|||20250101000000\r");
+
+        let y = r#"
+message_structure: "temporal_tolerance"
+version: "2.5.1"
+segments:
+  - id: "PID"
+  - id: "PV1"
+  - id: "ORC"
+temporal_rules:
+  - id: "date-before-date"
+    description: "PV1 should be before ORC within tolerance"
+    before: "PV1.10"
+    after: "ORC.4"
+    tolerance: "30s"
+"#;
+
+        let p: Profile = load_profile(y).unwrap();
+        let message = parse(msg.as_bytes()).unwrap();
+        let probs = validate(&message, &p);
+
+        assert!(
+            probs.is_empty(),
+            "a reverse delta exactly equal to the tolerance must be accepted: {probs:?}"
+        );
+    }
+
+    #[test]
+    fn test_temporal_rule_tolerance_overflow_clamps_to_max() {
+        // A tolerance so large that `after + tolerance` overflows the calendar
+        // must clamp the deadline to the maximum instant (so `before` stays
+        // within tolerance), not silently collapse back to a zero window.
+        let mut msg = String::new();
+        msg.push_str("MSH|^~\\&|SND|SF|RCV|RF|20250101000000||ADT^A01|MSG1|P|2.5.1\r");
+        msg.push_str("PID|1||123456^^^HOSP^MR||Doe^John||19800101|M\r");
+        msg.push_str("PV1|1|O|CLINIC|||||||20250101000030\r");
+        msg.push_str("ORC|RE|||20250101000000\r");
+
+        let y = r#"
+message_structure: "temporal_tolerance"
+version: "2.5.1"
+segments:
+  - id: "PID"
+  - id: "PV1"
+  - id: "ORC"
+temporal_rules:
+  - id: "date-before-date"
+    description: "PV1 should be before ORC within tolerance"
+    before: "PV1.10"
+    after: "ORC.4"
+    tolerance: "200000000d"
+"#;
+
+        let p: Profile = load_profile(y).unwrap();
+        let message = parse(msg.as_bytes()).unwrap();
+        let probs = validate(&message, &p);
+
+        assert!(
+            probs.is_empty(),
+            "an overflowing tolerance must clamp the deadline, not drop it: {probs:?}"
+        );
+    }
+
+    #[test]
     fn test_parse_tolerance_grammar_and_malformed_inputs() {
         use super::super::validation::parse_tolerance;
 

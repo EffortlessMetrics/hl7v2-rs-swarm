@@ -988,12 +988,19 @@ fn validate_temporal_rule(msg: &Message, rule: &TemporalRule, issues: &mut Vec<I
         .and_then(parse_tolerance)
         .unwrap_or_else(chrono::Duration::zero);
 
-    // Latest instant `before` may reach while still compliant. Falls back to the
-    // raw `after` time if adding the tolerance would overflow the calendar.
-    let deadline_for = |after_time: chrono::DateTime<chrono::Utc>| {
-        after_time
+    // Is this ordered pair a violation? A reverse delta up to and *including*
+    // the tolerance is compliant; `allow_equal` governs only exact equality at
+    // `after` (the zero-delta baseline), independent of the tolerance window.
+    // Shared by the search predicate and the final check so the two cannot
+    // drift. If adding the tolerance would overflow the calendar, the deadline
+    // is clamped to the maximum representable instant so the full tolerance is
+    // preserved rather than silently dropped.
+    let violates = |before_time: chrono::DateTime<chrono::Utc>,
+                    after_time: chrono::DateTime<chrono::Utc>| {
+        let deadline = after_time
             .checked_add_signed(tolerance)
-            .unwrap_or(after_time)
+            .unwrap_or(chrono::DateTime::<chrono::Utc>::MAX_UTC);
+        before_time > deadline || (!rule.allow_equal && before_time == after_time)
     };
 
     if let Some((before_value, after_value)) = first_condition_pair_matching(
@@ -1007,12 +1014,7 @@ fn validate_temporal_rule(msg: &Message, rule: &TemporalRule, issues: &mut Vec<I
                 return true;
             };
 
-            let deadline = deadline_for(after_time);
-            if rule.allow_equal {
-                before_time > deadline
-            } else {
-                before_time >= deadline
-            }
+            violates(before_time, after_time)
         },
     ) {
         let (Some(before_time), Some(after_time)) =
@@ -1029,14 +1031,7 @@ fn validate_temporal_rule(msg: &Message, rule: &TemporalRule, issues: &mut Vec<I
             return;
         };
 
-        let deadline = deadline_for(after_time);
-        let is_valid = if rule.allow_equal {
-            before_time <= deadline
-        } else {
-            before_time < deadline
-        };
-
-        if !is_valid {
+        if violates(before_time, after_time) {
             issues.push(Issue::error(
                 "TEMPORAL_RULE_VIOLATION",
                 Some(rule.before.clone()),
