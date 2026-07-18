@@ -69,24 +69,24 @@ pub fn write(msg: &Message) -> Vec<u8> {
         // Special handling for MSH segment
         if &segment.id == b"MSH" {
             // Write field separator
-            buf.push(msg.delims.field as u8);
+            push_delim(&mut buf, msg.delims.field);
 
             // Write encoding characters as a single field
-            buf.push(msg.delims.comp as u8);
-            buf.push(msg.delims.rep as u8);
-            buf.push(msg.delims.esc as u8);
-            buf.push(msg.delims.sub as u8);
+            push_delim(&mut buf, msg.delims.comp);
+            push_delim(&mut buf, msg.delims.rep);
+            push_delim(&mut buf, msg.delims.esc);
+            push_delim(&mut buf, msg.delims.sub);
 
             // Write the rest of the fields
             for field in segment.fields.iter().skip(1) {
                 // Skip the encoding characters field
-                buf.push(msg.delims.field as u8);
+                push_delim(&mut buf, msg.delims.field);
                 write_field(&mut buf, field, &msg.delims);
             }
         } else {
             // Write fields
             for field in &segment.fields {
-                buf.push(msg.delims.field as u8);
+                push_delim(&mut buf, msg.delims.field);
                 write_field(&mut buf, field, &msg.delims);
             }
         }
@@ -146,7 +146,7 @@ pub fn write_batch(batch: &Batch) -> Vec<u8> {
         } else {
             &Delims::default()
         };
-        result.push(delims.field as u8);
+        push_delim(&mut result, delims.field);
         write_segment_fields(header, &mut result, delims);
         result.push(b'\r');
     }
@@ -164,7 +164,7 @@ pub fn write_batch(batch: &Batch) -> Vec<u8> {
         } else {
             &Delims::default()
         };
-        result.push(delims.field as u8);
+        push_delim(&mut result, delims.field);
         write_segment_fields(trailer, &mut result, delims);
         result.push(b'\r');
     }
@@ -188,7 +188,7 @@ pub fn write_file_batch(file_batch: &FileBatch) -> Vec<u8> {
     if let Some(header) = &file_batch.header {
         result.extend_from_slice(&header.id);
         let delims = get_delimiters_from_file_batch(file_batch);
-        result.push(delims.field as u8);
+        push_delim(&mut result, delims.field);
         write_segment_fields(header, &mut result, &delims);
         result.push(b'\r');
     }
@@ -202,7 +202,7 @@ pub fn write_file_batch(file_batch: &FileBatch) -> Vec<u8> {
     if let Some(trailer) = &file_batch.trailer {
         result.extend_from_slice(&trailer.id);
         let delims = get_delimiters_from_file_batch(file_batch);
-        result.push(delims.field as u8);
+        push_delim(&mut result, delims.field);
         write_segment_fields(trailer, &mut result, &delims);
         result.push(b'\r');
     }
@@ -214,11 +214,22 @@ pub fn write_file_batch(file_batch: &FileBatch) -> Vec<u8> {
 // Internal helper functions
 // ============================================================================
 
+/// Append a delimiter character's UTF-8 bytes to `buf`.
+///
+/// HL7 v2 delimiters are single ASCII bytes, for which this is equivalent to a
+/// single `push`. Encoding (rather than `ch as u8`) avoids silently truncating
+/// a non-ASCII `char` to an unrelated low byte if a caller constructs `Delims`
+/// with an out-of-spec separator through its public fields.
+fn push_delim(buf: &mut Vec<u8>, ch: char) {
+    let mut tmp = [0u8; 4];
+    buf.extend_from_slice(ch.encode_utf8(&mut tmp).as_bytes());
+}
+
 /// Write a field to bytes (with escaping)
 fn write_field(output: &mut Vec<u8>, field: &Field, delims: &Delims) {
     for (i, rep) in field.reps.iter().enumerate() {
         if i > 0 {
-            output.push(delims.rep as u8);
+            push_delim(output, delims.rep);
         }
         write_rep(output, rep, delims);
     }
@@ -228,7 +239,7 @@ fn write_field(output: &mut Vec<u8>, field: &Field, delims: &Delims) {
 fn write_rep(output: &mut Vec<u8>, rep: &Rep, delims: &Delims) {
     for (i, comp) in rep.comps.iter().enumerate() {
         if i > 0 {
-            output.push(delims.comp as u8);
+            push_delim(output, delims.comp);
         }
         write_comp(output, comp, delims);
     }
@@ -238,7 +249,7 @@ fn write_rep(output: &mut Vec<u8>, rep: &Rep, delims: &Delims) {
 fn write_comp(output: &mut Vec<u8>, comp: &Comp, delims: &Delims) {
     for (i, atom) in comp.subs.iter().enumerate() {
         if i > 0 {
-            output.push(delims.sub as u8);
+            push_delim(output, delims.sub);
         }
         write_atom(output, atom, delims);
     }
@@ -262,7 +273,7 @@ fn write_atom(output: &mut Vec<u8>, atom: &Atom, delims: &Delims) {
 fn write_segment_fields(segment: &Segment, output: &mut Vec<u8>, delims: &Delims) {
     for (i, field) in segment.fields.iter().enumerate() {
         if i > 0 {
-            output.push(delims.field as u8);
+            push_delim(output, delims.field);
         }
         write_field(output, field, delims);
     }
