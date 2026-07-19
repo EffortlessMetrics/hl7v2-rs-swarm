@@ -429,6 +429,24 @@ pub fn is_time(value: &str) -> bool {
         return false;
     }
 
+    // A '.' is only valid as the fractional-seconds separator at index 6
+    // (HHMMSS.ffff). A '.' anywhere in the HH/MM/SS positions — e.g. "12.5",
+    // "1.30", or "1230.." — is invalid, but previously slipped past the range
+    // checks below: those compare raw string slices lexicographically, and '.'
+    // (0x2E) sorts below the digits, so a dotted slice never exceeded "23"/"59".
+    // Rejecting misplaced dots here also guarantees the HH/MM/SS slices are all
+    // digits, so those comparisons are sound.
+    match value.find('.') {
+        None => {}
+        Some(6) => {
+            let fraction = &value[7..];
+            if fraction.is_empty() || !fraction.bytes().all(|b| b.is_ascii_digit()) {
+                return false;
+            }
+        }
+        Some(_) => return false,
+    }
+
     // Extract hour and minute
     let hour = &value[0..2];
     let minute = &value[2..4];
@@ -1317,6 +1335,27 @@ mod legacy_tests {
         assert!(!is_time("2400")); // Invalid hour
         assert!(!is_time("1260")); // Invalid minute
         assert!(!is_time("123")); // Too short
+    }
+
+    #[test]
+    fn test_is_time_rejects_misplaced_dot() {
+        // Regression: a '.' in the HH/MM/SS positions used to slip past the
+        // lexicographic range checks (`'.'` sorts below the digits), so decimals
+        // and stray dots were accepted as valid times.
+        assert!(!is_time("12.5")); // dot in minute position
+        assert!(!is_time("1.30")); // dot in hour position
+        assert!(!is_time("1230..")); // dots in seconds position
+        assert!(!is_time("1230.")); // trailing dot, no fractional digits
+        assert!(!is_time("123045..")); // second dot in fractional position
+
+        // Well-formed fractional seconds remain valid.
+        assert!(is_time("123045.5"));
+        assert!(is_time("123045.1234"));
+        assert!(is_time("235959")); // seconds boundary still valid
+
+        // Timestamps built on the time portion inherit the fix.
+        assert!(!is_timestamp("2025010112.5"));
+        assert!(is_timestamp("20250101123045.5"));
     }
 
     #[test]
