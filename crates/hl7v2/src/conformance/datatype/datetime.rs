@@ -249,6 +249,16 @@ pub fn parse_hl7_tm(s: &str) -> Result<(u32, u32, u32, Option<u32>), DateTimeErr
             (time_tail, None)
         };
 
+        // Per the TM contract (HHMM[SS[.S[S[S[S]]]]]) the seconds field is
+        // exactly two digits. Without this check a partial one-digit tail such
+        // as "12305" was parsed as `seconds = 5`, fabricating a value from a
+        // malformed time and making `parse_hl7_ts` disagree with the
+        // length-gated `parse_hl7_ts_with_precision`.
+        if sec_part.len() != 2 {
+            return Err(DateTimeError::InvalidTimeFormat(format!(
+                "Seconds must be two digits, got '{sec_part}'"
+            )));
+        }
         let sec: u32 = sec_part
             .parse()
             .map_err(|_err| DateTimeError::TimeOutOfRange("Invalid second".to_string()))?;
@@ -730,6 +740,29 @@ mod tests {
     fn parse_hl7_tm_rejects_second_out_of_range() {
         let err = parse_hl7_tm("125960").expect_err("second 60");
         assert!(matches!(err, DateTimeError::TimeOutOfRange(_)));
+    }
+
+    #[test]
+    fn parse_hl7_tm_rejects_one_digit_seconds() {
+        // Regression: the seconds field must be exactly two digits. A partial
+        // one-digit tail like "12305" was previously parsed as (12, 30, 5),
+        // fabricating a seconds value from a malformed time.
+        let err = parse_hl7_tm("12305").expect_err("one-digit seconds");
+        assert!(matches!(err, DateTimeError::InvalidTimeFormat(_)));
+        assert!(!is_valid_hl7_time("12305"));
+
+        // The two TS parsers must now agree in rejecting the 13-char value
+        // (previously `parse_hl7_ts` accepted it while the length-gated
+        // `parse_hl7_ts_with_precision` rejected it as `Invalid length: 13`).
+        parse_hl7_ts("2025010112305").expect_err("13-char ts rejected");
+        parse_hl7_ts_with_precision("2025010112305").expect_err("13-char ts rejected");
+        assert!(!is_valid_hl7_timestamp("2025010112305"));
+
+        // Well-formed two-digit seconds (and fractional seconds) still parse.
+        let (h, m, s, _) = parse_hl7_tm("123045").expect("valid seconds");
+        assert_eq!((h, m, s), (12, 30, 45));
+        assert!(is_valid_hl7_time("123045.5"));
+        assert!(is_valid_hl7_timestamp("20250101123045"));
     }
 
     #[test]
