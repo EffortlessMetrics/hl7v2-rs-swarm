@@ -1333,6 +1333,35 @@ custom_rules:
         // This should pass because "Doe" has more than 1 character
         assert!(probs.is_empty(), "unexpected problems: {probs:?}");
     }
+
+    #[test]
+    fn custom_rule_matches_regex_degenerate_pattern_does_not_panic() {
+        use super::super::CustomRule;
+
+        // Regression: a `matches_regex` custom rule whose pattern content is a
+        // lone quote (`field(PID.5).matches_regex(')`) yields `pattern_part ==
+        // "')"`, which satisfies the `starts_with('\'')`/`ends_with("')")`
+        // guards while `len() - 2 == 0`. The old code then sliced `[1..0]` and
+        // panicked (`begin > end`). `validate` must skip the malformed rule and
+        // return normally.
+        let msg = parse(adt_a01_msg().as_bytes()).unwrap();
+        let profile = Profile {
+            custom_rules: vec![CustomRule {
+                id: "degenerate".to_string(),
+                description: String::new(),
+                script: "field(PID.5).matches_regex(')".to_string(),
+            }],
+            ..Profile::default()
+        };
+
+        let issues = validate(&msg, &profile);
+        assert!(
+            issues
+                .iter()
+                .all(|issue| issue.code != "CUSTOM_RULE_VIOLATION"),
+            "malformed regex rule should be skipped, got: {issues:?}"
+        );
+    }
 }
 
 #[cfg(test)]
