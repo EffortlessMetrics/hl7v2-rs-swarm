@@ -574,7 +574,11 @@ pub fn matches_format(value: &str, format: &str, datatype: &str) -> bool {
             if !(1..=31).contains(&day) {
                 return false;
             }
-            true
+            // The digit/range checks above pass structurally-valid but
+            // non-existent dates such as 2025-02-31 or 2025-04-31 (day 31 in a
+            // 30-day month, or Feb 31). Confirm the calendar date actually
+            // exists, mirroring `conformance::validation::matches_format`.
+            chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").is_ok()
         }
         ("TM", "HH:MM:SS") => {
             // Check if value matches HH:MM:SS format
@@ -1000,6 +1004,25 @@ mod tests {
         // Day out of range
         assert!(!matches_format("2025-01-32", "YYYY-MM-DD", "DT"));
         assert!(!matches_format("2025-01-00", "YYYY-MM-DD", "DT"));
+    }
+
+    #[test]
+    fn matches_format_dt_yyyy_mm_dd_rejects_impossible_calendar_dates() {
+        // Regression: day-of-month was only range-checked against 1..=31, so
+        // structurally-valid but non-existent dates were accepted.
+        assert!(!matches_format("2025-02-31", "YYYY-MM-DD", "DT"));
+        assert!(!matches_format("2025-02-30", "YYYY-MM-DD", "DT"));
+        assert!(!matches_format("2025-04-31", "YYYY-MM-DD", "DT"));
+        assert!(!matches_format("2025-06-31", "YYYY-MM-DD", "DT"));
+        assert!(!matches_format("2025-11-31", "YYYY-MM-DD", "DT"));
+        // 2025 is not a leap year, so Feb 29 does not exist.
+        assert!(!matches_format("2025-02-29", "YYYY-MM-DD", "DT"));
+
+        // Real calendar dates still validate, including a leap day.
+        assert!(matches_format("2025-01-31", "YYYY-MM-DD", "DT"));
+        assert!(matches_format("2025-02-28", "YYYY-MM-DD", "DT"));
+        assert!(matches_format("2024-02-29", "YYYY-MM-DD", "DT"));
+        assert!(matches_format("2025-12-31", "YYYY-MM-DD", "DT"));
     }
 
     #[test]
