@@ -121,39 +121,14 @@ pub fn write_mllp(msg: &Message) -> Vec<u8> {
 ///
 /// The serialized HL7 batch bytes
 pub fn write_batch(batch: &Batch) -> Vec<u8> {
+    // We need to get delimiters from the first message or use defaults
+    let delims = batch
+        .messages
+        .first()
+        .map_or_else(Delims::default, |first_msg| first_msg.delims.clone());
+
     let mut result = Vec::new();
-
-    // Write BHS if present
-    if let Some(header) = &batch.header {
-        result.extend_from_slice(&header.id);
-        // We need to get delimiters from the first message or use defaults
-        let delims = if let Some(first_msg) = batch.messages.first() {
-            &first_msg.delims
-        } else {
-            &Delims::default()
-        };
-        write_encoding_header_fields(&mut result, header, delims);
-        result.push(b'\r');
-    }
-
-    // Write all messages
-    for message in &batch.messages {
-        result.extend(write(message));
-    }
-
-    // Write BTS if present
-    if let Some(trailer) = &batch.trailer {
-        result.extend_from_slice(&trailer.id);
-        let delims = if let Some(first_msg) = batch.messages.first() {
-            &first_msg.delims
-        } else {
-            &Delims::default()
-        };
-        push_delim(&mut result, delims.field);
-        write_segment_fields(trailer, &mut result, delims);
-        result.push(b'\r');
-    }
-
+    write_batch_with_delims(&mut result, batch, &delims);
     result
 }
 
@@ -167,25 +142,25 @@ pub fn write_batch(batch: &Batch) -> Vec<u8> {
 ///
 /// The serialized HL7 file batch bytes
 pub fn write_file_batch(file_batch: &FileBatch) -> Vec<u8> {
+    // One delimiter set governs the whole file, including every nested batch.
+    let delims = get_delimiters_from_file_batch(file_batch);
     let mut result = Vec::new();
 
     // Write FHS if present
     if let Some(header) = &file_batch.header {
         result.extend_from_slice(&header.id);
-        let delims = get_delimiters_from_file_batch(file_batch);
         write_encoding_header_fields(&mut result, header, &delims);
         result.push(b'\r');
     }
 
     // Write all batches
     for batch in &file_batch.batches {
-        result.extend(write_batch(batch));
+        write_batch_with_delims(&mut result, batch, &delims);
     }
 
     // Write FTS if present
     if let Some(trailer) = &file_batch.trailer {
         result.extend_from_slice(&trailer.id);
-        let delims = get_delimiters_from_file_batch(file_batch);
         push_delim(&mut result, delims.field);
         write_segment_fields(trailer, &mut result, &delims);
         result.push(b'\r');
@@ -207,6 +182,33 @@ pub fn write_file_batch(file_batch: &FileBatch) -> Vec<u8> {
 fn push_delim(buf: &mut Vec<u8>, ch: char) {
     let mut tmp = [0u8; 4];
     buf.extend_from_slice(ch.encode_utf8(&mut tmp).as_bytes());
+}
+
+/// Append one batch (`BHS`, messages, `BTS`) using the given delimiters.
+///
+/// The delimiters are a parameter rather than re-derived per batch because a
+/// file batch has to declare the same set on every envelope segment it
+/// contains — see [`get_delimiters_from_file_batch`].
+fn write_batch_with_delims(result: &mut Vec<u8>, batch: &Batch, delims: &Delims) {
+    // Write BHS if present
+    if let Some(header) = &batch.header {
+        result.extend_from_slice(&header.id);
+        write_encoding_header_fields(result, header, delims);
+        result.push(b'\r');
+    }
+
+    // Write all messages
+    for message in &batch.messages {
+        result.extend(write(message));
+    }
+
+    // Write BTS if present
+    if let Some(trailer) = &batch.trailer {
+        result.extend_from_slice(&trailer.id);
+        push_delim(result, delims.field);
+        write_segment_fields(trailer, result, delims);
+        result.push(b'\r');
+    }
 }
 
 /// Write the fields of a header segment whose second HL7 field is the
@@ -286,16 +288,20 @@ fn write_segment_fields(segment: &Segment, output: &mut Vec<u8>, delims: &Delims
     }
 }
 
-/// Helper function to get delimiters from a file batch
+/// Helper function to get the delimiters that govern a whole file batch.
+///
+/// `parser::batch` applies a single delimiter set — taken from the first `MSH`
+/// line — to every envelope segment in the file, so the writer has to declare
+/// that same set on `FHS`/`FTS` and on every nested `BHS`/`BTS`. Scan all
+/// batches rather than only the first: a leading batch may carry no messages,
+/// and defaulting on its behalf would emit a file whose envelopes disagree with
+/// its messages and which this crate could not parse back.
 fn get_delimiters_from_file_batch(file_batch: &FileBatch) -> Delims {
-    // Try to get delimiters from the first message in the first batch
-    if let Some(first_batch) = file_batch.batches.first()
-        && let Some(first_message) = first_batch.messages.first()
-    {
-        return first_message.delims.clone();
-    }
-    // Fallback to default delimiters
-    Delims::default()
+    file_batch
+        .batches
+        .iter()
+        .find_map(|batch| batch.messages.first())
+        .map_or_else(Delims::default, |message| message.delims.clone())
 }
 
 #[cfg(test)]

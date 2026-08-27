@@ -730,6 +730,67 @@ fn test_write_batch_header_encoding_characters_follow_delims() {
 }
 
 #[test]
+fn test_write_file_batch_declares_one_delimiter_set_for_every_envelope() {
+    // `parser::batch` applies a single delimiter set to every envelope segment
+    // in a file, so the writer must not let a leading message-less batch
+    // default its `BHS` to `|^~\&` while the rest of the file uses another set.
+    let delims = Delims {
+        field: '!',
+        comp: '*',
+        rep: '~',
+        esc: '\\',
+        sub: '&',
+    };
+    let header = |id: [u8; 3], name: &str| Segment {
+        id,
+        fields: vec![Field::from_text("^~\\&"), Field::from_text(name)],
+    };
+
+    let file_batch = FileBatch {
+        header: Some(header(*b"FHS", "FILE")),
+        batches: vec![
+            // A leading batch carrying no messages at all.
+            Batch {
+                header: Some(header(*b"BHS", "B0")),
+                messages: vec![],
+                trailer: None,
+            },
+            Batch {
+                header: Some(header(*b"BHS", "B1")),
+                messages: vec![Message {
+                    delims,
+                    segments: vec![Segment {
+                        id: *b"MSH",
+                        fields: vec![Field::from_text("*~\\&"), Field::from_text("APP")],
+                    }],
+                    charsets: vec![],
+                }],
+                trailer: Some(Segment {
+                    id: *b"BTS",
+                    fields: vec![Field::from_text("1")],
+                }),
+            },
+        ],
+        trailer: Some(Segment {
+            id: *b"FTS",
+            fields: vec![Field::from_text("1")],
+        }),
+    };
+
+    let written = String::from_utf8(write_file_batch(&file_batch)).unwrap();
+
+    assert!(written.starts_with("FHS!*~\\&!FILE\r"), "got {written:?}");
+    assert!(written.contains("\rBHS!*~\\&!B0\r"), "got {written:?}");
+    assert!(written.contains("\rBHS!*~\\&!B1\r"), "got {written:?}");
+    assert!(written.contains("\rBTS!1\r"), "got {written:?}");
+    assert!(written.contains("\rFTS!1\r"), "got {written:?}");
+    assert!(
+        !written.contains('|'),
+        "no envelope may fall back to the default field separator: {written:?}"
+    );
+}
+
+#[test]
 fn test_write_batch_with_trailer() {
     let mut batch = Batch::default();
     batch.messages.push(Message {
