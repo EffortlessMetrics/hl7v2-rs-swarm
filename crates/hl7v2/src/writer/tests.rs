@@ -654,6 +654,143 @@ fn test_write_batch_with_header() {
 }
 
 #[test]
+fn test_write_batch_preserves_bhs_encoding_characters() {
+    // Regression: the BHS encoding-characters field (BHS-2) is stored as
+    // `fields[0]`, exactly like MSH-2. Routing it through the normal field
+    // writer escaped every delimiter it declares, emitting `^~\E\&` instead of
+    // `^~\&`, leaving a receiver with `E` as the subcomponent separator.
+    let raw = b"BHS|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|20260101000000||BATCH42|Nightly import|CTRL11\rMSH|^~\\&|A|B|C|D|20260101000000||ADT^A01|M1|P|2.5\rBTS|1\r";
+
+    let batch = crate::parse_batch(raw).unwrap();
+    let written = write_batch(&batch);
+
+    assert_eq!(
+        String::from_utf8(written.clone()).unwrap(),
+        String::from_utf8(raw.to_vec()).unwrap(),
+        "batch round-trip must be byte-identical"
+    );
+    assert!(
+        written.starts_with(b"BHS|^~\\&|"),
+        "BHS-2 must declare the encoding characters verbatim, got {:?}",
+        String::from_utf8_lossy(&written)
+    );
+    assert!(!written.starts_with(b"BHS|^~\\E\\&"));
+}
+
+#[test]
+fn test_write_file_batch_preserves_fhs_and_bhs_encoding_characters() {
+    let raw = b"FHS|^~\\&|SENDAPP|SENDFAC|RECVAPP|RECVFAC|20260101000000||FILE1|File comment|FCTRL\rBHS|^~\\&|S|F|R|RF|20260101000000||B1|BC|BCTRL\rMSH|^~\\&|A|B|C|D|20260101000000||ADT^A01|M1|P|2.5\rBTS|1\rFTS|1\r";
+
+    let file_batch = crate::parse_file_batch(raw).unwrap();
+    let written = write_file_batch(&file_batch);
+
+    assert_eq!(
+        String::from_utf8(written.clone()).unwrap(),
+        String::from_utf8(raw.to_vec()).unwrap(),
+        "file batch round-trip must be byte-identical"
+    );
+    let text = String::from_utf8(written).unwrap();
+    assert!(text.starts_with("FHS|^~\\&|"));
+    assert!(text.contains("\rBHS|^~\\&|"));
+}
+
+#[test]
+fn test_write_batch_header_encoding_characters_follow_delims() {
+    // The encoding-characters field is emitted from the delimiters actually in
+    // use, not from whatever text the caller stored in `fields[0]`.
+    let delims = Delims {
+        field: '!',
+        comp: '*',
+        rep: '~',
+        esc: '\\',
+        sub: '&',
+    };
+    let batch = Batch {
+        header: Some(Segment {
+            id: *b"BHS",
+            fields: vec![Field::from_text("^~\\&"), Field::from_text("SENDAPP")],
+        }),
+        messages: vec![Message {
+            delims,
+            segments: vec![Segment {
+                id: *b"MSH",
+                fields: vec![Field::from_text("*~\\&")],
+            }],
+            charsets: vec![],
+        }],
+        trailer: None,
+    };
+
+    let written = String::from_utf8(write_batch(&batch)).unwrap();
+
+    assert!(
+        written.starts_with("BHS!*~\\&!SENDAPP\r"),
+        "got {written:?}"
+    );
+}
+
+#[test]
+fn test_write_file_batch_declares_one_delimiter_set_for_every_envelope() {
+    // `parser::batch` applies a single delimiter set to every envelope segment
+    // in a file, so the writer must not let a leading message-less batch
+    // default its `BHS` to `|^~\&` while the rest of the file uses another set.
+    let delims = Delims {
+        field: '!',
+        comp: '*',
+        rep: '~',
+        esc: '\\',
+        sub: '&',
+    };
+    let header = |id: [u8; 3], name: &str| Segment {
+        id,
+        fields: vec![Field::from_text("^~\\&"), Field::from_text(name)],
+    };
+
+    let file_batch = FileBatch {
+        header: Some(header(*b"FHS", "FILE")),
+        batches: vec![
+            // A leading batch carrying no messages at all.
+            Batch {
+                header: Some(header(*b"BHS", "B0")),
+                messages: vec![],
+                trailer: None,
+            },
+            Batch {
+                header: Some(header(*b"BHS", "B1")),
+                messages: vec![Message {
+                    delims,
+                    segments: vec![Segment {
+                        id: *b"MSH",
+                        fields: vec![Field::from_text("*~\\&"), Field::from_text("APP")],
+                    }],
+                    charsets: vec![],
+                }],
+                trailer: Some(Segment {
+                    id: *b"BTS",
+                    fields: vec![Field::from_text("1")],
+                }),
+            },
+        ],
+        trailer: Some(Segment {
+            id: *b"FTS",
+            fields: vec![Field::from_text("1")],
+        }),
+    };
+
+    let written = String::from_utf8(write_file_batch(&file_batch)).unwrap();
+
+    assert!(written.starts_with("FHS!*~\\&!FILE\r"), "got {written:?}");
+    assert!(written.contains("\rBHS!*~\\&!B0\r"), "got {written:?}");
+    assert!(written.contains("\rBHS!*~\\&!B1\r"), "got {written:?}");
+    assert!(written.contains("\rBTS!1\r"), "got {written:?}");
+    assert!(written.contains("\rFTS!1\r"), "got {written:?}");
+    assert!(
+        !written.contains('|'),
+        "no envelope may fall back to the default field separator: {written:?}"
+    );
+}
+
+#[test]
 fn test_write_batch_with_trailer() {
     let mut batch = Batch::default();
     batch.messages.push(Message {

@@ -173,6 +173,33 @@ mod tests {
         assert_eq!(redacted_count, 2);
     }
 
+    #[test]
+    fn redacts_component_in_every_field_repetition() -> Result<(), Box<dyn std::error::Error>> {
+        // A path with no explicit `[rep]` selector covers every repetition of
+        // the field, the same way a path with no segment repetition covers
+        // every matching segment.
+        let mut message = crate::parse(
+            b"MSH|^~\\&|SEND|FAC|RECV|FAC|202605090101||ADT^A01|CTRL1|P|2.5\rPID|1||123456^^^HOSP^MR||Doe^John||||||||555-1111^HOME~555-2222^WORK",
+        )?;
+        let config = RedactionConfig {
+            replacement: "XXX".to_string(),
+            fields: vec!["PID.13.1".to_string()],
+        };
+
+        redact(&mut message, &config);
+
+        let written = String::from_utf8(crate::write(&message))?;
+        ensure(
+            written.contains("XXX^HOME~XXX^WORK"),
+            "expected PID-13.1 to be redacted in every repetition",
+        )?;
+        ensure(
+            !written.contains("555-2222"),
+            "redaction left a later repetition in the output",
+        )?;
+        Ok(())
+    }
+
     fn safe_analysis_policy() -> &'static str {
         r#"
 [[rules]]
@@ -413,6 +440,45 @@ reason = "Remove populated next-of-kin name"
         ensure(
             action.status == RedactionActionStatus::Applied,
             "expected targeted action to apply",
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn safe_analysis_redacts_component_in_every_field_repetition()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let message = "MSH|^~\\&|SEND|FAC|RECV|FAC|202605090101||ORU^R01|CTRL1|P|2.5\r\
+OBX|1|ST|A||Alpha^one~Beta^two";
+        let policy = r#"
+[[rules]]
+path = "OBX-5.1"
+action = "drop"
+reason = "Remove first component of every observation value"
+"#;
+
+        let output = redact_hl7_safe_analysis(message, policy)?;
+
+        ensure(
+            output.redacted_hl7.contains("OBX|1|ST|A||^one~^two"),
+            "expected OBX-5.1 to be cleared in every repetition",
+        )?;
+        ensure(
+            !output.redacted_hl7.contains("Beta"),
+            "redacted HL7 leaked a later repetition",
+        )?;
+        // Sibling components are untouched, and the receipt still counts one
+        // match per segment rather than one per repetition.
+        ensure(
+            output.redacted_hl7.contains("one") && output.redacted_hl7.contains("two"),
+            "redaction removed neighbouring components",
+        )?;
+        ensure(
+            output
+                .receipt
+                .actions
+                .iter()
+                .any(|action| action.path == "OBX.5.1" && action.matched_count == 1),
+            "expected one OBX.5.1 receipt match for the segment",
         )?;
         Ok(())
     }
