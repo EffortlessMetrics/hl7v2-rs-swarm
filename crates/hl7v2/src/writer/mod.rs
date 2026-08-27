@@ -68,21 +68,7 @@ pub fn write(msg: &Message) -> Vec<u8> {
 
         // Special handling for MSH segment
         if &segment.id == b"MSH" {
-            // Write field separator
-            push_delim(&mut buf, msg.delims.field);
-
-            // Write encoding characters as a single field
-            push_delim(&mut buf, msg.delims.comp);
-            push_delim(&mut buf, msg.delims.rep);
-            push_delim(&mut buf, msg.delims.esc);
-            push_delim(&mut buf, msg.delims.sub);
-
-            // Write the rest of the fields
-            for field in segment.fields.iter().skip(1) {
-                // Skip the encoding characters field
-                push_delim(&mut buf, msg.delims.field);
-                write_field(&mut buf, field, &msg.delims);
-            }
+            write_encoding_header_fields(&mut buf, segment, &msg.delims);
         } else {
             // Write fields
             for field in &segment.fields {
@@ -146,8 +132,7 @@ pub fn write_batch(batch: &Batch) -> Vec<u8> {
         } else {
             &Delims::default()
         };
-        push_delim(&mut result, delims.field);
-        write_segment_fields(header, &mut result, delims);
+        write_encoding_header_fields(&mut result, header, delims);
         result.push(b'\r');
     }
 
@@ -188,8 +173,7 @@ pub fn write_file_batch(file_batch: &FileBatch) -> Vec<u8> {
     if let Some(header) = &file_batch.header {
         result.extend_from_slice(&header.id);
         let delims = get_delimiters_from_file_batch(file_batch);
-        push_delim(&mut result, delims.field);
-        write_segment_fields(header, &mut result, &delims);
+        write_encoding_header_fields(&mut result, header, &delims);
         result.push(b'\r');
     }
 
@@ -223,6 +207,29 @@ pub fn write_file_batch(file_batch: &FileBatch) -> Vec<u8> {
 fn push_delim(buf: &mut Vec<u8>, ch: char) {
     let mut tmp = [0u8; 4];
     buf.extend_from_slice(ch.encode_utf8(&mut tmp).as_bytes());
+}
+
+/// Write the fields of a header segment whose second HL7 field is the
+/// encoding-characters field (`MSH`, `BHS`, `FHS`), excluding the segment ID.
+///
+/// In the parsed model `segment.fields[0]` holds that encoding-characters
+/// field, so it must be emitted verbatim from `delims` rather than round-tripped
+/// through `write_field`. Passing it through the normal field writer would
+/// escape every delimiter it declares (`^~\&` becomes `^~\E\&`), corrupting
+/// the very characters a receiver reads to parse the rest of the envelope.
+fn write_encoding_header_fields(output: &mut Vec<u8>, segment: &Segment, delims: &Delims) {
+    // Field separator, then the encoding characters as a single field.
+    push_delim(output, delims.field);
+    push_delim(output, delims.comp);
+    push_delim(output, delims.rep);
+    push_delim(output, delims.esc);
+    push_delim(output, delims.sub);
+
+    // Write the rest of the fields, skipping the stored encoding-characters field.
+    for field in segment.fields.iter().skip(1) {
+        push_delim(output, delims.field);
+        write_field(output, field, delims);
+    }
 }
 
 /// Write a field to bytes (with escaping)
