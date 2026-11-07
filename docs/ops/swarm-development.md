@@ -16,6 +16,33 @@
 
 ## Branch Rules
 
+### Workflow validation
+
+Before pushing workflow, composite-action, or Dependabot changes, run from the
+repository root:
+
+```bash
+uvx --from jactionlint==2.5.0 jactionlint --config-file .github/jactionlint.yaml --profile correctness --no-online --shellcheck= --pyflakes=
+```
+
+The explicit repository config excludes user-global rule overrides and fails
+closed if the config is missing; it adds no suppressions or inline-ignore changes.
+`github-script-syntax` requires Node.js 20+ on PATH. Without it, jactionlint skips
+that rule with a note, so a clean run does not prove embedded JavaScript syntax.
+
+If installed through `uv tool install jactionlint==2.5.0`, use `jactionlint`
+directly with the same arguments. The existing three-minute hosted runner-policy
+job performs this pinned offline correctness check; no additional runner job,
+required status, or runtime Rust compilation is added. Its configuration and
+non-Rust policy receipt are explicit swarm-infrastructure source-sync exceptions. Optional
+ShellCheck/Pyflakes integration is deliberately excluded from this semantic
+gate, and existing script checks remain intact. A plain YAML parse is not an
+equivalent fallback. Report an actual invocation failure; do not treat a missing
+`actionlint` binary as a reason to omit `jactionlint`. This is static lint, not
+`jactionlint run`.
+
+### Branch protection and routing
+
 - Do not push directly to `main`.
 - Use PRs against `main` for swarm development.
 - Branch protection is deferred until routed CI is proven.
@@ -278,11 +305,13 @@ parity support-map audit guard, cargo-make cleanup, source-of-truth guide, and
 lifecycle retention coverage updates have been synced into `hl7v2-rs-swarm`.
 The remaining source-vs-swarm tree delta is intentional swarm infrastructure:
 
+- `.github/jactionlint.yaml`
 - `.github/workflows/ci-policy.yml`
 - `.github/workflows/em-ci-routed-rust.yml`
 - `docs/ci/ci-lane-whitelist.md`
 - `docs/ops/swarm-development.md`
 - swarm routed-lane entries in `policy/ci-lane-whitelist.toml`
+- swarm workflow-lint configuration entry in `policy/non-rust-allowlist.toml`
 - swarm workflow allowlist entry in `policy/workflow-allowlist.toml`
 - swarm self-hosted runner guard script in `scripts/ci/check-no-bare-self-hosted.sh`
 - `xtask` source-sync boundary command wiring

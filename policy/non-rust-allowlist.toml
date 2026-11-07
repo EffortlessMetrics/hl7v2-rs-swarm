@@ -16,6 +16,15 @@ schema_version = "1.0"
 # ---------------------------------------------------------------------------
 
 [[allow]]
+path = ".github/jactionlint.yaml"
+kind = "ci_declarative"
+owner = "release/ci"
+surface = "ci"
+classification = "config"
+reason = "Repository-owned correctness/offline workflow lint rules exclude user-global suppressions."
+covered_by = [".github/workflows/ci-policy.yml", "cargo run -p xtask -- check-file-policy"]
+
+[[allow]]
 glob = ".github/workflows/*.yml"
 kind = "ci_declarative"
 owner = "release/ci"

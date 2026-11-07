@@ -10701,12 +10701,14 @@ fn check_ci_policy_source_sync_text_invariants(workflow: &str, workflow_text: &s
 
 fn allowed_source_sync_boundary_paths() -> BTreeSet<&'static str> {
     BTreeSet::from([
+        ".github/jactionlint.yaml",
         ".github/workflows/ci-policy.yml",
         ".github/workflows/em-ci-routed-rust.yml",
         ".hl7v2/goals/active.toml",
         "docs/ci/ci-lane-whitelist.md",
         "docs/ops/swarm-development.md",
         "policy/ci-lane-whitelist.toml",
+        "policy/non-rust-allowlist.toml",
         "policy/workflow-allowlist.toml",
         "scripts/ci/check-no-bare-self-hosted.sh",
         "xtask/src/cli.rs",
@@ -11918,12 +11920,14 @@ jobs:
     #[test]
     fn source_sync_boundary_accepts_intentional_swarm_paths() -> Result<()> {
         let diff = "\
+A\t.github/jactionlint.yaml
 A\t.github/workflows/ci-policy.yml
 A\t.github/workflows/em-ci-routed-rust.yml
 M\t.hl7v2/goals/active.toml
 M\tdocs/ci/ci-lane-whitelist.md
 A\tdocs/ops/swarm-development.md
 M\tpolicy/ci-lane-whitelist.toml
+M\tpolicy/non-rust-allowlist.toml
 M\tpolicy/workflow-allowlist.toml
 A\tscripts/ci/check-no-bare-self-hosted.sh
 M\txtask/src/cli.rs
@@ -11935,6 +11939,22 @@ M\txtask/src/main.rs
         } else {
             Err(anyhow!(
                 "intentional swarm source-sync delta should be accepted: {errors:?}"
+            ))
+        }
+    }
+
+    #[test]
+    fn source_sync_boundary_rejects_unrelated_config_delta() -> Result<()> {
+        let diff = "A\t.github/unrelated-config.yaml\n";
+        let errors = source_sync_boundary_text_errors(diff, &allowed_source_sync_boundary_paths());
+        if errors
+            .iter()
+            .any(|error| error.contains(".github/unrelated-config.yaml"))
+        {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "source-sync boundary should reject unrelated configuration: {errors:?}"
             ))
         }
     }
