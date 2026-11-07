@@ -16,6 +16,27 @@
 
 ## Branch Rules
 
+### Workflow validation
+
+Before pushing workflow, composite-action, or Dependabot changes, run from the
+repository root:
+
+```bash
+uvx --from jactionlint==2.5.0 jactionlint --profile correctness --no-online --shellcheck= --pyflakes=
+```
+
+If installed through `uv tool install jactionlint==2.5.0`, use `jactionlint`
+directly with the same arguments. The existing three-minute hosted runner-policy
+job performs this pinned offline correctness check; no additional runner job,
+required status, Rust compilation, or source-sync exception is added. Optional
+ShellCheck/Pyflakes integration is deliberately excluded from this semantic
+gate, and existing script checks remain intact. A plain YAML parse is not an
+equivalent fallback. Report an actual invocation failure; do not treat a missing
+`actionlint` binary as a reason to omit `jactionlint`. This is static lint, not
+`jactionlint run`.
+
+### Branch protection and routing
+
 - Do not push directly to `main`.
 - Use PRs against `main` for swarm development.
 - Branch protection is deferred until routed CI is proven.
