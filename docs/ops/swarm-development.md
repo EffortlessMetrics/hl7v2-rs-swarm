@@ -22,8 +22,13 @@ Before pushing workflow, composite-action, or Dependabot changes, run from the
 repository root:
 
 ```bash
-uvx --from jactionlint==2.5.0 jactionlint --profile correctness --no-online --shellcheck= --pyflakes=
+uvx --from jactionlint==2.5.0 jactionlint --config-file .github/jactionlint.yaml --profile correctness --no-online --shellcheck= --pyflakes=
 ```
+
+The explicit repository config excludes user-global rule overrides and fails
+closed if the config is missing; it adds no suppressions or inline-ignore changes.
+`github-script-syntax` requires Node.js 20+ on PATH. Without it, jactionlint skips
+that rule with a note, so a clean run does not prove embedded JavaScript syntax.
 
 If installed through `uv tool install jactionlint==2.5.0`, use `jactionlint`
 directly with the same arguments. The existing three-minute hosted runner-policy
